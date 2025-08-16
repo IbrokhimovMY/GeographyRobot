@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Davlatlar xaritasi</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        #map { height: 100vh; width: 100%; }
+        body { margin: 0; }
+        .leaflet-popup-content-wrapper { font-family: Arial, sans-serif; }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script>
+        // Initialize the map
+        const map = L.map('map').setView([0, 0], 2);
+
+        // Add OpenStreetMap tiles
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(map);
+
+        // Load GeoJSON data for countries
+        fetch('https://raw.githubusercontent.com/datasets/geo-boundaries-world-110m/master/countries.geojson')
+            .then(response => response.json())
+            .then(data => {
+                // Map country names to Uzbek names
+                const countryNameMap = {
+                    "Afghanistan": "Afgʻoniston",
+                    "Albania": "Albaniya",
+                    "Algeria": "Jazoir",
+                    "Andorra": "Andorra",
+                    "Angola": "Angola",
+                    "Antigua and Barbuda": "Antigua va Barbuda",
+                    "Argentina": "Argentina",
+                    "Armenia": "Armaniston",
+                    "Australia": "Avstraliya",
+                    "Austria": "Avstriya",
+                    "Azerbaijan": "Ozarbayjon",
+                    "Bahamas": "Bagama orollari",
+                    "Bahrain": "Bahrayn",
+                    "Bangladesh": "Bangladesh",
+                    "Barbados": "Barbados",
+                    "Belarus": "Belarus",
+                    "Belgium": "Belgiya",
+                    "Belize": "Beliz",
+                    "Benin": "Benin",
+                    "Bhutan": "Butan",
+                    "Bolivia": "Boliviya",
+                    "Bosnia and Herzegovina": "Bosniya va Gertsegovina",
+                    "Botswana": "Botsvana",
+                    "Brazil": "Braziliya",
+                    "Brunei": "Bruney",
+                    "Bulgaria": "Bolgariya",
+                    "Burkina Faso": "Burkina Faso",
+                    "Burundi": "Burundi",
+                    "Cape Verde": "Kabo Verde",
+                    "Cambodia": "Kambodja",
+                    "Cameroon": "Kamerun",
+                    "Canada": "Kanada",
+                    "Central African Republic": "Markaziy Afrika Respublikasi",
+                    "Chad": "Chad",
+                    "Chile": "Chili",
+                    "China": "Xitoy",
+                    "Colombia": "Kolumbiya",
+                    "Comoros": "Komor orollari",
+                    "Democratic Republic of the Congo": "Kongo Demokratik Respublikasi",
+                    "Republic of the Congo": "Kongo Respublikasi",
+                    "Costa Rica": "Kosta Rika",
+                    "Croatia": "Xorvatiya",
+                    "Cuba": "Kuba",
+                    "Cyprus": "Qibris",
+                    "Czech Republic": "Chexiya",
+                    "Denmark": "Daniya",
+                    "Djibouti": "Jibuti",
+                    "Dominica": "Dominika",
+                    "Dominican Republic": "Dominikan Respublikasi",
+                    "Ecuador": "Ekvador",
+                    "Egypt": "Misr",
+                    "El Salvador": "Salvador",
+                    "Equatorial Guinea": "Ekvatorial Gvineya",
+                    "Eritrea": "Eritreya",
+                    "Estonia": "Estoniya",
+                    "Eswatini": "Esvatini",
+                    "Ethiopia": "Efiopiya",
+                    "Fiji": "Fiji",
+                    "Finland": "Finlandiya",
+                    "France": "Fransiya",
+                    "Gabon": "Gabon",
+                    "Gambia": "Gambiya",
+                    "Georgia": "Gruziya",
+                    "Germany": "Germaniya",
+                    "Ghana": "Gana",
+                    "Greece": "Gretsiya",
+                    "Grenada": "Grenada",
+                    "Guatemala": "Gvatemala",
+                    "Guinea": "Gvineya",
+                    "Guinea-Bissau": "Gvineya-Bisau",
+                    "Guyana": "Gayana",
+                    "Haiti": "Gaiti",
+                    "Honduras": "Gonduras",
+                    "Hungary": "Vengriya",
+                    "Iceland": "Islandiya",
+                    "India": "Hindiston",
+                    "Indonesia": "Indoneziya",
+                    "Iran": "Eron",
+                    "Iraq": "Iroq",
+                    "Ireland": "Irlandiya",
+                    "Israel": "Isroil",
+                    "Italy": "Italiya",
+                    "Jamaica": "Yamayka",
+                    "Japan": "Yaponiya",
+                    "Jordan": "Iordaniya",
+                    "Kazakhstan": "Qozogʻiston",
+                    "Kenya": "Keniya",
+                    "Kiribati": "Kiribati",
+                    "Kuwait": "Kuvayt",
+                    "Kyrgyzstan": "Qirgʻiziston",
+                    "Laos": "Laos",
+                    "Latvia": "Latviya",
+                    "Lebanon": "Livan",
+                    "Lesotho": "Lesoto",
+                    "Liberia": "Liberiya",
+                    "Libya": "Liviya",
+                    "Liechtenstein": "Lixtenshteyn",
+                    "Lithuania": "Litva",
+                    "Luxembourg": "Lyuksemburg",
+                    "Madagascar": "Madagaskar",
+                    "Malawi": "Malavi",
+                    "Malaysia": "Malayziya",
+                    "Maldives": "Maldiv orollari",
+                    "Mali": "Mali",
+                    "Malta": "Malta",
+                    "Marshall Islands": "Marshall orollari",
+                    "Mauritania": "Mavritaniya",
+                    "Mauritius": "Mavrikiy",
+                    "Mexico": "Meksika",
+                    "Micronesia": "Mikroneziya",
+                    "Moldova": "Moldova",
+                    "Monaco": "Monako",
+                    "Mongolia": "Moʻgʻuliston",
+                    "Montenegro": "Chernogoriya",
+                    "Morocco": "Marokash",
+                    "Mozambique": "Mozambik",
+                    "Myanmar": "Myanma",
+                    "Namibia": "Namibiya",
+                    "Nauru": "Nauru",
+                    "Nepal": "Nepal",
+                    "Netherlands": "Niderlandiya",
+                    "New Zealand": "Yangi Zelandiya",
+                    "Nicaragua": "Nikaragua",
+                    "Niger": "Niger",
+                    "Nigeria": "Nigeriya",
+                    "North Korea": "Shimoliy Koreya",
+                    "North Macedonia": "Shimoliy Makedoniya",
+                    "Norway": "Norvegiya",
+                    "Oman": "Ummon",
+                    "Pakistan": "Pokiston",
+                    "Palau": "Palau",
+                    "Palestine": "Falastin",
+                    "Panama": "Panama",
+                    "Papua New Guinea": "Papua Yangi Gvineya",
+                    "Paraguay": "Paragvay",
+                    "Peru": "Peru",
+                    "Philippines": "Filippin",
+                    "Poland": "Polsha",
+                    "Portugal": "Portugaliya",
+                    "Qatar": "Qatar",
+                    "Romania": "Ruminiya",
+                    "Russia": "Rossiya",
+                    "Rwanda": "Ruanda",
+                    "Saint Kitts and Nevis": "Sent Kitts va Nevis",
+                    "Saint Lucia": "Sent Lusiya",
+                    "Saint Vincent and the Grenadines": "Sent Vinsent va Grenadinlar",
+                    "Samoa": "Samoa",
+                    "San Marino": "San Marino",
+                    "Sao Tome and Principe": "San-Tome va Prinsipi",
+                    "Saudi Arabia": "Saudiya Arabistoni",
+                    "Senegal": "Senegal",
+                    "Serbia": "Serbiya",
+                    "Seychelles": "Seyshell orollari",
+                    "Sierra Leone": "Syerra Leone",
+                    "Singapore": "Singapur",
+                    "Slovakia": "Slovakiya",
+                    "Slovenia": "Sloveniya",
+                    "Solomon Islands": "Solomon orollari",
+                    "Somalia": "Somali",
+                    "South Africa": "Janubiy Afrika",
+                    "South Korea": "Janubiy Koreya",
+                    "South Sudan": "Janubiy Sudan",
+                    "Spain": "Ispaniya",
+                    "Sri Lanka": "Shri Lanka",
+                    "Sudan": "Sudan",
+                    "Suriname": "Surinam",
+                    "Sweden": "Shvetsiya",
+                    "Switzerland": "Shveytsariya",
+                    "Syria": "Suriya",
+                    "Taiwan": "Tayvan",
+                    "Tajikistan": "Tojikiston",
+                    "Tanzania": "Tanzaniya",
+                    "Thailand": "Tailand",
+                    "Timor-Leste": "Sharqiy Timor",
+                    "Togo": "Togo",
+                    "Tonga": "Tonga",
+                    "Trinidad and Tobago": "Trinidad va Tobago",
+                    "Tunisia": "Tunis",
+                    "Turkey": "Turkiya",
+                    "Turkmenistan": "Turkmaniston",
+                    "Tuvalu": "Tuvalu",
+                    "Uganda": "Uganda",
+                    "Ukraine": "Ukraina",
+                    "United Arab Emirates": "Birlashgan Arab Amirliklari",
+                    "United Kingdom": "Buyuk Britaniya",
+                    "United States": "Amerika Qoʻshma Shtatlari",
+                    "Uruguay": "Urugvay",
+                    "Uzbekistan": "Oʻzbekiston",
+                    "Vanuatu": "Vanuatu",
+                    "Vatican City": "Vatikan",
+                    "Venezuela": "Venesuela",
+                    "Vietnam": "Vyetnam",
+                    "Yemen": "Yaman",
+                    "Zambia": "Zambiya",
+                    "Zimbabwe": "Zimbabve"
+                };
+
+                L.geoJSON(data, {
+                    style: function(feature) {
+                        return { fillColor: '#3388ff', weight: 1, opacity: 1, color: 'white', fillOpacity: 0.7 };
+                    },
+                    onEachFeature: function(feature, layer) {
+                        const countryName = countryNameMap[feature.properties.name] || feature.properties.name;
+                        layer.bindPopup(countryName);
+                        layer.on('click', function(e) {
+                            Telegram.WebApp.sendData(JSON.stringify({ country: countryName }));
+                            Telegram.WebApp.close();
+                        });
+                    }
+                }).addTo(map);
+            });
+
+        // Initialize Telegram Web App
+        Telegram.WebApp.ready();
+    </script>
+</body>
+</html>
