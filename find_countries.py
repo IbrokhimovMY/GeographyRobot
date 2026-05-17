@@ -1,9 +1,33 @@
+import os
+import json
 import random
+import logging
+import sqlite3
+import html as _html
+from collections import defaultdict
+from dotenv import load_dotenv
 import telegram
 from telegram import ReplyKeyboardMarkup, WebAppInfo
-from telegram.ext import Application, CommandHandler, MessageHandler, filters, JobQueue
-from typing import List, Dict, Set
-import json
+from telegram.ext import Application, CommandHandler, MessageHandler, filters
+from typing import Dict, Set
+
+load_dotenv()
+
+logging.basicConfig(
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    level=logging.INFO,
+    handlers=[
+        logging.FileHandler('bot.log'),
+        logging.StreamHandler()
+    ]
+)
+logger = logging.getLogger(__name__)
+
+BOT_TOKEN = os.getenv('BOT_TOKEN')
+WEBAPP_URL = os.getenv('WEBAPP_URL', '')
+
+if not BOT_TOKEN:
+    raise ValueError("BOT_TOKEN muhit o'zgaruvchisi o'rnatilmagan. .env faylini tekshiring.")
 
 # Comprehensive list of countries in Uzbek
 COUNTRIES = [
@@ -42,206 +66,79 @@ COUNTRIES = [
     "Vanuatu", "Vatikan", "Venesuela", "Vyetnam", "Yaman", "Zambiya", "Zimbabve"
 ]
 
-# Dictionary of countries and their capitals in Uzbek
+COUNTRIES_SET = set(COUNTRIES)
+
 countries_capitals = {
-    "Afgʻoniston": "Kobul",
-    "Albaniya": "Tirana",
-    "Jazoir": "Jazoir",
-    "Andorra": "Andorra la Vella",
-    "Angola": "Luanda",
-    "Antigua va Barbuda": "Sent-Jons",
-    "Argentina": "Buenos-Ayres",
-    "Armaniston": "Yerevan",
-    "Avstraliya": "Kanberra",
-    "Avstriya": "Vena",
-    "Ozarbayjon": "Boku",
-    "Bagama orollari": "Nassau",
-    "Bahrayn": "Manama",
-    "Bangladesh": "Dakka",
-    "Barbados": "Bridjtaun",
-    "Belarus": "Minsk",
-    "Belgiya": "Bryussel",
-    "Beliz": "Belmopan",
-    "Benin": "Porto-Novo",
-    "Butan": "Thimphu",
-    "Boliviya": "Sukre",
-    "Bosniya va Gertsegovina": "Sarayevo",
-    "Botsvana": "Gaborone",
-    "Braziliya": "Brazilia",
-    "Bruney": "Bandar Seri Begavon",
-    "Bolgariya": "Sofiya",
-    "Burkina Faso": "Uagadugu",
-    "Burundi": "Gitega",
-    "Kabo Verde": "Praya",
-    "Kambodja": "Pnompen",
-    "Kamerun": "Yaunde",
-    "Kanada": "Ottava",
-    "Markaziy Afrika Respublikasi": "Bangui",
-    "Chad": "Njamena",
-    "Chili": "Santyago",
-    "Xitoy": "Pekin",
-    "Kolumbiya": "Bogota",
-    "Komor orollari": "Moroni",
-    "Kongo Demokratik Respublikasi": "Kinshasa",
-    "Kongo Respublikasi": "Brazzavil",
-    "Kosta Rika": "San-Xose",
-    "Xorvatiya": "Zagreb",
-    "Kuba": "Gavana",
-    "Qibris": "Nikosiya",
-    "Chexiya": "Praga",
-    "Daniya": "Kopengagen",
-    "Jibuti": "Jibuti",
-    "Dominika": "Rozo",
-    "Dominikan Respublikasi": "Santo-Domingo",
-    "Ekvador": "Kito",
-    "Misr": "Qohira",
-    "Salvador": "San-Salvador",
-    "Ekvatorial Gvineya": "Malabo",
-    "Eritreya": "Asmara",
-    "Estoniya": "Tallin",
-    "Esvatini": "Mbabane",
-    "Efiopiya": "Addis-Abeba",
-    "Fiji": "Suva",
-    "Finlandiya": "Xelsinki",
-    "Fransiya": "Parij",
-    "Gabon": "Librevil",
-    "Gambiya": "Banjul",
-    "Gruziya": "Tbilisi",
-    "Germaniya": "Berlin",
-    "Gana": "Akkra",
-    "Gretsiya": "Afina",
-    "Grenada": "Sent-Jorj",
-    "Gvatemala": "Gvatemala Siti",
-    "Gvineya": "Konakri",
-    "Gvineya-Bisau": "Bisau",
-    "Gayana": "Jorjtaun",
-    "Gaiti": "Port-o-Prens",
-    "Gonduras": "Tegusigalpa",
-    "Vengriya": "Budapesht",
-    "Islandiya": "Reykyavik",
-    "Hindiston": "Yangi Dehli",
-    "Indoneziya": "Jakarta",
-    "Eron": "Tehron",
-    "Iroq": "Bagʻdod",
-    "Irlandiya": "Dublin",
-    "Isroil": "Tel Aviv",
-    "Italiya": "Rim",
-    "Yamayka": "Kingston",
-    "Yaponiya": "Tokio",
-    "Iordaniya": "Ammon",
-    "Qozogʻiston": "Astana",
-    "Keniya": "Nayrobi",
-    "Kiribati": "Tarava",
-    "Kuvayt": "Kuvayt Siti",
-    "Qirgʻiziston": "Bishkek",
-    "Laos": "Vientian",
-    "Latviya": "Riga",
-    "Livan": "Bayrut",
-    "Lesoto": "Maseru",
-    "Liberiya": "Monroviya",
-    "Liviya": "Tripoli",
-    "Lixtenshteyn": "Vaduz",
-    "Litva": "Vilnyus",
-    "Lyuksemburg": "Lyuksemburg",
-    "Madagaskar": "Antananarivo",
-    "Malavi": "Lilongve",
-    "Malayziya": "Kuala-Lumpur",
-    "Maldiv orollari": "Male",
-    "Mali": "Bamako",
-    "Malta": "Valletta",
-    "Marshall orollari": "Majuro",
-    "Mavritaniya": "Nuakshot",
-    "Mavrikiy": "Port-Lui",
-    "Meksika": "Mexiko Siti",
-    "Mikroneziya": "Palikir",
-    "Moldova": "Kishinyov",
-    "Monako": "Monako",
-    "Moʻgʻuliston": "Ulan-Bator",
-    "Chernogoriya": "Podgoritsa",
-    "Marokash": "Rabat",
-    "Mozambik": "Maputo",
-    "Myanma": "Naypyido",
-    "Namibiya": "Vindhuk",
-    "Nauru": "Yaren",
-    "Nepal": "Katmandu",
-    "Niderlandiya": "Amsterdam",
-    "Yangi Zelandiya": "Vellington",
-    "Nikaragua": "Managua",
-    "Niger": "Niamey",
-    "Nigeriya": "Abuja",
-    "Shimoliy Koreya": "Pxenyan",
-    "Shimoliy Makedoniya": "Skopye",
-    "Norvegiya": "Oslo",
-    "Ummon": "Maskat",
-    "Pokiston": "Islomobod",
-    "Palau": "Ngerulmud",
-    "Falastin": "Sharqiy Quddus",
-    "Panama": "Panama Siti",
-    "Papua Yangi Gvineya": "Port-Moresbi",
-    "Paragvay": "Asunsion",
-    "Peru": "Lima",
-    "Filippin": "Manila",
-    "Polsha": "Varshava",
-    "Portugaliya": "Lissabon",
-    "Qatar": "Doha",
-    "Ruminiya": "Buxarest",
-    "Rossiya": "Moskva",
-    "Ruanda": "Kigali",
-    "Sent Kitts va Nevis": "Baster",
-    "Sent Lusiya": "Kastri",
-    "Sent Vinsent va Grenadinlar": "Kingstaun",
-    "Samoa": "Apia",
-    "San Marino": "San Marino",
-    "San-Tome va Prinsipi": "San-Tome",
-    "Saudiya Arabistoni": "Riyod",
-    "Senegal": "Dakar",
-    "Serbiya": "Belgrad",
-    "Seyshell orollari": "Viktoriya",
-    "Syerra Leone": "Fritaun",
-    "Singapur": "Singapur",
-    "Slovakiya": "Bratislava",
-    "Sloveniya": "Lyublyana",
-    "Solomon orollari": "Honiara",
-    "Somali": "Mogadishu",
-    "Janubiy Afrika": "Pretoriya",
-    "Janubiy Koreya": "Seul",
-    "Janubiy Sudan": "Juba",
-    "Ispaniya": "Madrid",
-    "Shri Lanka": "Shri Jayavardenepura Kotte",
-    "Sudan": "Xartum",
-    "Surinam": "Paramaribo",
-    "Shvetsiya": "Stokgolm",
-    "Shveytsariya": "Bern",
-    "Suriya": "Damashq",
-    "Tayvan": "Taypey",
-    "Tojikiston": "Dushanbe",
-    "Tanzaniya": "Dodoma",
-    "Tailand": "Bangkok",
-    "Sharqiy Timor": "Dili",
-    "Togo": "Lome",
-    "Tonga": "Nukualofa",
-    "Trinidad va Tobago": "Port-of-Speyn",
-    "Tunis": "Tunis",
-    "Turkiya": "Anqara",
-    "Turkmaniston": "Ashxobod",
-    "Tuvalu": "Funafuti",
-    "Uganda": "Kampala",
-    "Ukraina": "Kiyev",
-    "Birlashgan Arab Amirliklari": "Abu-Dabi",
-    "Buyuk Britaniya": "London",
-    "Amerika Qoʻshma Shtatlari": "Vashington, D.C.",
-    "Urugvay": "Montevideo",
-    "Oʻzbekiston": "Toshkent",
-    "Vanuatu": "Port-Vila",
-    "Vatikan": "Vatikan Siti",
-    "Venesuela": "Karakas",
-    "Vyetnam": "Xanoy",
-    "Yaman": "Sano",
-    "Zambiya": "Lusaka",
-    "Zimbabve": "Harare"
+    "Afgʻoniston": "Kobul", "Albaniya": "Tirana", "Jazoir": "Jazoir",
+    "Andorra": "Andorra la Vella", "Angola": "Luanda", "Antigua va Barbuda": "Sent-Jons",
+    "Argentina": "Buenos-Ayres", "Armaniston": "Yerevan", "Avstraliya": "Kanberra",
+    "Avstriya": "Vena", "Ozarbayjon": "Boku", "Bagama orollari": "Nassau",
+    "Bahrayn": "Manama", "Bangladesh": "Dakka", "Barbados": "Bridjtaun",
+    "Belarus": "Minsk", "Belgiya": "Bryussel", "Beliz": "Belmopan",
+    "Benin": "Porto-Novo", "Butan": "Thimphu", "Boliviya": "Sukre",
+    "Bosniya va Gertsegovina": "Sarayevo", "Botsvana": "Gaborone", "Braziliya": "Brazilia",
+    "Bruney": "Bandar Seri Begavon", "Bolgariya": "Sofiya", "Burkina Faso": "Uagadugu",
+    "Burundi": "Gitega", "Kabo Verde": "Praya", "Kambodja": "Pnompen",
+    "Kamerun": "Yaunde", "Kanada": "Ottava", "Markaziy Afrika Respublikasi": "Bangui",
+    "Chad": "Njamena", "Chili": "Santyago", "Xitoy": "Pekin",
+    "Kolumbiya": "Bogota", "Komor orollari": "Moroni",
+    "Kongo Demokratik Respublikasi": "Kinshasa", "Kongo Respublikasi": "Brazzavil",
+    "Kosta Rika": "San-Xose", "Xorvatiya": "Zagreb", "Kuba": "Gavana",
+    "Qibris": "Nikosiya", "Chexiya": "Praga", "Daniya": "Kopengagen",
+    "Jibuti": "Jibuti", "Dominika": "Rozo", "Dominikan Respublikasi": "Santo-Domingo",
+    "Ekvador": "Kito", "Misr": "Qohira", "Salvador": "San-Salvador",
+    "Ekvatorial Gvineya": "Malabo", "Eritreya": "Asmara", "Estoniya": "Tallin",
+    "Esvatini": "Mbabane", "Efiopiya": "Addis-Abeba", "Fiji": "Suva",
+    "Finlandiya": "Xelsinki", "Fransiya": "Parij", "Gabon": "Librevil",
+    "Gambiya": "Banjul", "Gruziya": "Tbilisi", "Germaniya": "Berlin",
+    "Gana": "Akkra", "Gretsiya": "Afina", "Grenada": "Sent-Jorj",
+    "Gvatemala": "Gvatemala Siti", "Gvineya": "Konakri", "Gvineya-Bisau": "Bisau",
+    "Gayana": "Jorjtaun", "Gaiti": "Port-o-Prens", "Gonduras": "Tegusigalpa",
+    "Vengriya": "Budapesht", "Islandiya": "Reykyavik", "Hindiston": "Yangi Dehli",
+    "Indoneziya": "Jakarta", "Eron": "Tehron", "Iroq": "Bagʻdod",
+    "Irlandiya": "Dublin", "Isroil": "Tel Aviv", "Italiya": "Rim",
+    "Yamayka": "Kingston", "Yaponiya": "Tokio", "Iordaniya": "Ammon",
+    "Qozogʻiston": "Astana", "Keniya": "Nayrobi", "Kiribati": "Tarava",
+    "Kuvayt": "Kuvayt Siti", "Qirgʻiziston": "Bishkek", "Laos": "Vientian",
+    "Latviya": "Riga", "Livan": "Bayrut", "Lesoto": "Maseru",
+    "Liberiya": "Monroviya", "Liviya": "Tripoli", "Lixtenshteyn": "Vaduz",
+    "Litva": "Vilnyus", "Lyuksemburg": "Lyuksemburg", "Madagaskar": "Antananarivo",
+    "Malavi": "Lilongve", "Malayziya": "Kuala-Lumpur", "Maldiv orollari": "Male",
+    "Mali": "Bamako", "Malta": "Valletta", "Marshall orollari": "Majuro",
+    "Mavritaniya": "Nuakshot", "Mavrikiy": "Port-Lui", "Meksika": "Mexiko Siti",
+    "Mikroneziya": "Palikir", "Moldova": "Kishinyov", "Monako": "Monako",
+    "Moʻgʻuliston": "Ulan-Bator", "Chernogoriya": "Podgoritsa", "Marokash": "Rabat",
+    "Mozambik": "Maputo", "Myanma": "Naypyido", "Namibiya": "Vindhuk",
+    "Nauru": "Yaren", "Nepal": "Katmandu", "Niderlandiya": "Amsterdam",
+    "Yangi Zelandiya": "Vellington", "Nikaragua": "Managua", "Niger": "Niamey",
+    "Nigeriya": "Abuja", "Shimoliy Koreya": "Pxenyan", "Shimoliy Makedoniya": "Skopye",
+    "Norvegiya": "Oslo", "Ummon": "Maskat", "Pokiston": "Islomobod",
+    "Palau": "Ngerulmud", "Falastin": "Sharqiy Quddus", "Panama": "Panama Siti",
+    "Papua Yangi Gvineya": "Port-Moresbi", "Paragvay": "Asunsion", "Peru": "Lima",
+    "Filippin": "Manila", "Polsha": "Varshava", "Portugaliya": "Lissabon",
+    "Qatar": "Doha", "Ruminiya": "Buxarest", "Rossiya": "Moskva",
+    "Ruanda": "Kigali", "Sent Kitts va Nevis": "Baster", "Sent Lusiya": "Kastri",
+    "Sent Vinsent va Grenadinlar": "Kingstaun", "Samoa": "Apia",
+    "San Marino": "San Marino", "San-Tome va Prinsipi": "San-Tome",
+    "Saudiya Arabistoni": "Riyod", "Senegal": "Dakar", "Serbiya": "Belgrad",
+    "Seyshell orollari": "Viktoriya", "Syerra Leone": "Fritaun", "Singapur": "Singapur",
+    "Slovakiya": "Bratislava", "Sloveniya": "Lyublyana", "Solomon orollari": "Honiara",
+    "Somali": "Mogadishu", "Janubiy Afrika": "Pretoriya", "Janubiy Koreya": "Seul",
+    "Janubiy Sudan": "Juba", "Ispaniya": "Madrid",
+    "Shri Lanka": "Shri Jayavardenepura Kotte", "Sudan": "Xartum",
+    "Surinam": "Paramaribo", "Shvetsiya": "Stokgolm", "Shveytsariya": "Bern",
+    "Suriya": "Damashq", "Tayvan": "Taypey", "Tojikiston": "Dushanbe",
+    "Tanzaniya": "Dodoma", "Tailand": "Bangkok", "Sharqiy Timor": "Dili",
+    "Togo": "Lome", "Tonga": "Nukualofa", "Trinidad va Tobago": "Port-of-Speyn",
+    "Tunis": "Tunis", "Turkiya": "Anqara", "Turkmaniston": "Ashxobod",
+    "Tuvalu": "Funafuti", "Uganda": "Kampala", "Ukraina": "Kiyev",
+    "Birlashgan Arab Amirliklari": "Abu-Dabi", "Buyuk Britaniya": "London",
+    "Amerika Qoʻshma Shtatlari": "Vashington, D.C.", "Urugvay": "Montevideo",
+    "Oʻzbekiston": "Toshkent", "Vanuatu": "Port-Vila", "Vatikan": "Vatikan Siti",
+    "Venesuela": "Karakas", "Vyetnam": "Xanoy", "Yaman": "Sano",
+    "Zambiya": "Lusaka", "Zimbabve": "Harare"
 }
 
-# Dictionary of hints for countries in Uzbek
 country_hints = {
     "Afgʻoniston": "Bu davlat Osiyoda joylashgan, poytaxti Kobul.",
     "Albaniya": "Yevropaning janubi-sharqida, Adriatik dengizi sohilida, poytaxti Tirana.",
@@ -287,7 +184,7 @@ country_hints = {
     "Xorvatiya": "Yevropada, Adriatik orollari, poytaxti Zagreb.",
     "Kuba": "Karib dengizida, salsa raqsi, poytaxti Gavana.",
     "Qibris": "Oʻrta yer dengizida, ikkiga boʻlingan, poytaxti Nikosiya.",
-    "Chexiya": "Yevropada, pivo va qal’alar, poytaxti Praga.",
+    "Chexiya": "Yevropada, pivo va qal'alar, poytaxti Praga.",
     "Daniya": "Yevropada, Vikinglar merosi, poytaxti Kopengagen.",
     "Jibuti": "Afrika shoxida, Qizil dengiz, poytaxti Jibuti.",
     "Dominika": "Karib dengizida, vulqonlar, poytaxti Rozo.",
@@ -305,7 +202,7 @@ country_hints = {
     "Fransiya": "Yevropada, Eyfel minorasi, poytaxti Parij.",
     "Gabon": "Afrikada, tropik oʻrmonlar, poytaxti Librevil.",
     "Gambiya": "Afrikada, kichik materik davlati, poytaxti Banjul.",
-    "Gruziya": "Kavkazda, sharob an’analari, poytaxti Tbilisi.",
+    "Gruziya": "Kavkazda, sharob an'analari, poytaxti Tbilisi.",
     "Germaniya": "Yevropada, Oktoberfest, poytaxti Berlin.",
     "Gana": "Gʻarbiy Afrikada, oltin va kakao, poytaxti Akkra.",
     "Gretsiya": "Yevropada, qadimiy xarobalar, poytaxti Afina.",
@@ -347,7 +244,7 @@ country_hints = {
     "Malayziya": "Janubi-Sharqiy Osiyoda, Petronas minoralari, poytaxti Kuala-Lumpur.",
     "Maldiv orollari": "Hind okeanida, dam olish maskanlari, poytaxti Male.",
     "Mali": "Gʻarbiy Afrikada, Timbuktu, poytaxti Bamako.",
-    "Malta": "Oʻrta yer dengizida, tarixiy qal’alar, poytaxti Valletta.",
+    "Malta": "Oʻrta yer dengizida, tarixiy qal'alar, poytaxti Valletta.",
     "Marshall orollari": "Tinch okeanida, kichik orollar, poytaxti Majuro.",
     "Mavritaniya": "Afrikada, Saxara choʻli, poytaxti Nuakshot.",
     "Mavrikiy": "Hind okeanida, koʻp madaniyatli, poytaxti Port-Lui.",
@@ -440,259 +337,522 @@ country_hints = {
     "Zimbabve": "Janubiy Afrikada, Buyuk Zimbabve, poytaxti Harare."
 }
 
-# Store assigned countries for the country game
-assigned_countries: Dict[str, str] = {}
+# --- DATABASE ---
+DB_PATH = 'geography_bot.db'
 
-# Store pending guesses for the capital game
-pending_capital_guesses: Dict[str, Dict[str, str]] = {}
+_SCORE_COLUMNS = {
+    ('correct', 'country'): 'correct_country',
+    ('wrong',   'country'): 'wrong_country',
+    ('correct', 'capital'): 'correct_capital',
+    ('wrong',   'capital'): 'wrong_capital',
+    ('timeout', 'capital'): 'timeout_capital',
+}
 
-# Store pending guesses for the country game (map-based)
-pending_country_guesses: Dict[str, str] = {}
 
-# Store used countries for the capital guessing game
-used_countries_for_capital: Set[str] = set()
+def init_db():
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS users (
+                user_id      TEXT PRIMARY KEY,
+                username     TEXT DEFAULT '',
+                display_name TEXT DEFAULT '',
+                correct_country  INTEGER DEFAULT 0,
+                wrong_country    INTEGER DEFAULT 0,
+                correct_capital  INTEGER DEFAULT 0,
+                wrong_capital    INTEGER DEFAULT 0,
+                timeout_capital  INTEGER DEFAULT 0
+            )
+        ''')
+        # migrate: add display_name if upgrading from old schema
+        try:
+            conn.execute('ALTER TABLE users ADD COLUMN display_name TEXT DEFAULT ""')
+        except sqlite3.OperationalError:
+            pass
+    logger.info("Ma'lumotlar bazasi tayyor.")
 
-# Keyboard layouts
+
+def _ensure_user(conn: sqlite3.Connection, user_id: str, username: str):
+    conn.execute(
+        'INSERT OR IGNORE INTO users (user_id, username) VALUES (?, ?)',
+        (user_id, username)
+    )
+    conn.execute('UPDATE users SET username = ? WHERE user_id = ?', (username, user_id))
+
+
+def record_result(user_id: str, username: str, game_type: str, result: str):
+    col = _SCORE_COLUMNS.get((result, game_type))
+    if col is None:
+        return
+    with sqlite3.connect(DB_PATH) as conn:
+        _ensure_user(conn, user_id, username)
+        conn.execute(f'UPDATE users SET {col} = {col} + 1 WHERE user_id = ?', (user_id,))
+
+
+def set_display_name(user_id: str, username: str, display_name: str):
+    with sqlite3.connect(DB_PATH) as conn:
+        _ensure_user(conn, user_id, username)
+        conn.execute('UPDATE users SET display_name = ? WHERE user_id = ?', (display_name, user_id))
+
+
+def get_display_name(user_id: str, fallback: str) -> str:
+    with sqlite3.connect(DB_PATH) as conn:
+        row = conn.execute(
+            'SELECT display_name, username FROM users WHERE user_id = ?', (user_id,)
+        ).fetchone()
+    if row:
+        return row[0] if row[0] else (row[1] if row[1] else fallback)
+    return fallback
+
+
+def get_stats(user_id: str, username: str) -> dict:
+    with sqlite3.connect(DB_PATH) as conn:
+        _ensure_user(conn, user_id, username)
+        row = conn.execute(
+            'SELECT correct_country, wrong_country, correct_capital, wrong_capital, timeout_capital '
+            'FROM users WHERE user_id = ?', (user_id,)
+        ).fetchone()
+    return {
+        'correct_country': row[0], 'wrong_country': row[1],
+        'correct_capital': row[2], 'wrong_capital': row[3],
+        'timeout_capital': row[4],
+    }
+
+
+def get_top_users(limit: int = 10) -> list:
+    with sqlite3.connect(DB_PATH) as conn:
+        rows = conn.execute(
+            '''SELECT COALESCE(NULLIF(display_name,""), NULLIF(username,""), user_id),
+                      correct_country, correct_capital,
+                      correct_country + correct_capital AS total
+               FROM users
+               ORDER BY total DESC
+               LIMIT ?''',
+            (limit,)
+        ).fetchall()
+    return rows
+
+
+# --- IN-MEMORY GAME STATE (keyed by chat_id) ---
+# One active game per chat (group or private)
+active_country_games: Dict[str, dict] = {}   # chat_id → {country}
+active_capital_games: Dict[str, dict] = {}   # chat_id → {country, capital, job}
+used_capital_countries: Dict[str, Set] = defaultdict(set)   # chat_id → set
+used_country_countries: Dict[str, Set] = defaultdict(set)   # chat_id → set
+
+# --- KEYBOARDS ---
 default_keyboard = [
-    ['/getcountry', '/getcapital'],
-    ['/reset', '/help']
+    ['🌍 Davlat topish', '🏙 Poytaxt topish'],
+    ['🏆 Top', '📊 Statistika', '♻️ Reset', '❓ Yordam'],
 ]
 guess_keyboard = [
-    ['/hint', '/getcapital'],
-    ['/reset', '/help']
+    ['💡 Ishora', '🏙 Poytaxt topish'],
+    ['♻️ Reset', '❓ Yordam'],
 ]
 default_reply_markup = ReplyKeyboardMarkup(default_keyboard, resize_keyboard=True, one_time_keyboard=False)
-guess_reply_markup = ReplyKeyboardMarkup(guess_keyboard, resize_keyboard=True, one_time_keyboard=False)
+guess_reply_markup   = ReplyKeyboardMarkup(guess_keyboard,   resize_keyboard=True, one_time_keyboard=False)
 
+
+# --- HELPERS ---
+def _chat_key(update: telegram.Update) -> str:
+    return str(update.effective_chat.id)
+
+
+def _is_group(update: telegram.Update) -> bool:
+    return update.effective_chat.type in ('group', 'supergroup')
+
+
+def _tg_username(update: telegram.Update) -> str:
+    u = update.effective_user
+    return u.username or u.first_name or str(u.id)
+
+
+def _player_name(update: telegram.Update) -> str:
+    """Display name from DB if registered, otherwise Telegram name."""
+    return get_display_name(str(update.effective_user.id), _tg_username(update))
+
+
+def _cancel_capital_job(chat_id: str):
+    game = active_capital_games.get(chat_id)
+    if game:
+        job = game.get('job')
+        if job is not None:
+            try:
+                job.schedule_removal()
+            except Exception:
+                pass
+
+
+# --- COMMAND HANDLERS ---
 
 async def start(update: telegram.Update, context: telegram.ext.ContextTypes.DEFAULT_TYPE) -> None:
-    """Handler for the /start command."""
+    logger.info("/start: %s", _tg_username(update))
     await update.message.reply_text(
-        "Davlatlar oʻyin botiga xush kelibsiz! Oʻyinni boshlash uchun quyidagi buyruqlardan foydalaning.",
+        "Davlatlar oʻyin botiga xush kelibsiz!\n\n"
+        "Ismingizni saqlash uchun: /register Ism Familiya\n"
+        "Oʻyinni boshlash uchun quyidagi buyruqlardan foydalaning.",
+        reply_markup=default_reply_markup
+    )
+
+
+async def register(update: telegram.Update, context: telegram.ext.ContextTypes.DEFAULT_TYPE) -> None:
+    user_id = str(update.effective_user.id)
+    username = _tg_username(update)
+
+    if not context.args:
+        await update.message.reply_text(
+            "Ismingizni kiriting. Masalan:\n/register Ali Valiyev",
+            reply_markup=default_reply_markup
+        )
+        return
+
+    display_name = ' '.join(context.args)[:50].strip()
+    if not display_name:
+        await update.message.reply_text("Ism boʻsh boʻlmasligi kerak.")
+        return
+
+    set_display_name(user_id, username, display_name)
+    logger.info("Roʻyxat: %s → %s", user_id, display_name)
+    await update.message.reply_text(
+        f"✅ Siz <b>{_html.escape(display_name)}</b> sifatida roʻyxatdan oʻtdingiz!",
+        parse_mode='HTML',
         reply_markup=default_reply_markup
     )
 
 
 async def get_country(update: telegram.Update, context: telegram.ext.ContextTypes.DEFAULT_TYPE) -> None:
-    """Handler for the /getcountry command."""
-    user_id = str(update.message.from_user.id)
+    chat_id = _chat_key(update)
+    user_id = str(update.effective_user.id)
+    username = _tg_username(update)
 
-    # Check if there are unassigned countries left
-    available_countries = [country for country in COUNTRIES if country not in assigned_countries.values()]
+    _cancel_capital_job(chat_id)
 
-    if not available_countries:
+    used = used_country_countries[chat_id]
+    available = [c for c in COUNTRIES if c not in used]
+    if not available:
         await update.message.reply_text(
-            "Boshqa davlat qolmadi! Yangi oʻyinni boshlash uchun /reset buyrugʻini ishlating.",
+            "Barcha davlatlar oʻynaldi! /reset bilan qayta boshlang.",
             reply_markup=default_reply_markup
         )
         return
 
-    # Assign a random country
-    country = random.choice(available_countries)
-    assigned_countries[user_id] = country
-    pending_country_guesses[user_id] = country
+    country = random.choice(available)
+    used.add(country)
+    hint_text = country_hints.get(country, "")
+    active_country_games[chat_id] = {'country': country}
 
-    # Send Web App button
-    web_app = WebAppInfo(url="https://your-domain.com/map.html")  # Replace with your hosted URL
-    keyboard = [[telegram.KeyboardButton("Xaritada tanlash", web_app=web_app)]]
-    web_app_reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=True)
+    with sqlite3.connect(DB_PATH) as _c:
+        _ensure_user(_c, user_id, username)
 
-    await update.message.reply_text(
-        f"Sizning davlatingiz: **{country}**! Xaritada topish uchun quyidagi tugmani bosing.",
-        reply_markup=web_app_reply_markup
-    )
+    if _is_group(update):
+        msg = (
+            f"🌍 *Yangi savol!*\n\n"
+            f"Ishora: _{hint_text}_\n\n"
+            f"Bu qaysi davlat? Birinchi toʻgʻri javob bergan g'alaba qiladi!"
+        )
+    else:
+        msg = (
+            f"🌍 *Davlat topish oʻyini*\n\n"
+            f"Ishora: _{hint_text}_\n\n"
+            f"Davlat nomini yozing yoki xaritada toping!"
+        )
+
+    # Build keyboard: add map button if URL is configured
+    if WEBAPP_URL and WEBAPP_URL != 'https://your-domain.com/map.html':
+        map_keyboard = [
+            [telegram.KeyboardButton("🗺 Xaritada topish", web_app=WebAppInfo(url=WEBAPP_URL))],
+            ['💡 Ishora', '♻️ Reset'],
+        ]
+        reply_markup = ReplyKeyboardMarkup(map_keyboard, resize_keyboard=True, one_time_keyboard=False)
+    else:
+        reply_markup = guess_reply_markup
+
+    await update.message.reply_text(msg, parse_mode='Markdown', reply_markup=reply_markup)
+    logger.info("Davlat oʻyini: chat=%s → %s", chat_id, country)
 
 
 async def get_capital(update: telegram.Update, context: telegram.ext.ContextTypes.DEFAULT_TYPE) -> None:
-    """Handler for the /getcapital command."""
-    user_id = str(update.message.from_user.id)
+    chat_id = _chat_key(update)
+    user_id = str(update.effective_user.id)
+    username = _tg_username(update)
 
-    # Cancel any existing timer for this user
-    if user_id in pending_capital_guesses and 'job' in pending_capital_guesses[user_id]:
-        pending_capital_guesses[user_id]['job'].schedule_removal()
+    _cancel_capital_job(chat_id)
 
-    # Check if there are unused countries left for guessing
-    available_countries = [country for country in COUNTRIES if country not in used_countries_for_capital]
-
-    if not available_countries:
+    used = used_capital_countries[chat_id]
+    available = [c for c in COUNTRIES if c not in used]
+    if not available:
         await update.message.reply_text(
-            "Boshqa poytaxt qolmadi! Yangi oʻyinni boshlash uchun /reset buyrugʻini ishlating.",
+            "Barcha poytaxtlar oʻynaldi! /reset bilan qayta boshlang.",
             reply_markup=default_reply_markup
         )
         return
 
-    # Pick a random country
-    country = random.choice(available_countries)
-    used_countries_for_capital.add(country)
+    country = random.choice(available)
+    used.add(country)
     capital = countries_capitals[country]
 
-    # Set pending guess
-    pending_capital_guesses[user_id] = {'country': country, 'job': None}
+    active_capital_games[chat_id] = {'country': country, 'capital': capital, 'job': None}
+    with sqlite3.connect(DB_PATH) as _c:
+        _ensure_user(_c, user_id, username)
 
-    # Schedule timeout
     job = context.job_queue.run_once(
         callback=timeout_capital_guess,
         when=60,
-        data={'user_id': user_id, 'chat_id': update.message.chat_id, 'country': country},
-        name=f"timeout_{user_id}"
+        data={'chat_id': chat_id, 'country': country},
+        name=f"timeout_{chat_id}"
     )
-    pending_capital_guesses[user_id]['job'] = job
+    active_capital_games[chat_id]['job'] = job
 
-    await update.message.reply_text(
-        f"Poytaxt: **{capital}**. Davlat nomini yozib taxmin qiling! (1 daqiqa vaqtingiz bor)",
-        reply_markup=guess_reply_markup
-    )
+    if _is_group(update):
+        msg = (
+            f"🏙 *Yangi savol!*\n\n"
+            f"Poytaxt: *{capital}*\n\n"
+            f"Bu qaysi davlatning poytaxti? (60 soniya) Birinchi toʻgʻri javob bergan g'alaba qiladi!"
+        )
+    else:
+        msg = (
+            f"🏙 Poytaxt: *{capital}*\n\n"
+            f"Davlat nomini yozing! (60 soniya)"
+        )
+
+    await update.message.reply_text(msg, parse_mode='Markdown', reply_markup=guess_reply_markup)
+    logger.info("Poytaxt oʻyini: chat=%s → %s (%s)", chat_id, country, capital)
 
 
 async def timeout_capital_guess(context: telegram.ext.ContextTypes.DEFAULT_TYPE) -> None:
-    """Callback for when the capital guess time expires."""
-    job_data = context.job.data
-    user_id = job_data['user_id']
-    chat_id = job_data['chat_id']
-    country = job_data['country']
+    data = context.job.data
+    chat_id = data['chat_id']
+    country = data['country']
 
-    if user_id in pending_capital_guesses:
+    if chat_id in active_capital_games and active_capital_games[chat_id]['country'] == country:
+        del active_capital_games[chat_id]
         await context.bot.send_message(
-            chat_id=chat_id,
-            text=f"Vaqt tugadi! Toʻgʻri javob: **{country}**. Yana oʻynash uchun /getcapital buyrugʻini ishlating.",
+            chat_id=int(chat_id),
+            text=f"⏰ Vaqt tugadi! Toʻgʻri javob: *{country}*.\nYana oʻynash uchun /getcapital.",
+            parse_mode='Markdown',
             reply_markup=default_reply_markup
         )
-        del pending_capital_guesses[user_id]
+        logger.info("Timeout: chat=%s — %s", chat_id, country)
 
 
 async def hint(update: telegram.Update, context: telegram.ext.ContextTypes.DEFAULT_TYPE) -> None:
-    """Handler for the /hint command."""
-    user_id = str(update.message.from_user.id)
+    chat_id = _chat_key(update)
 
-    if user_id in pending_capital_guesses:
-        country = pending_capital_guesses[user_id]['country']
-        hint_text = country_hints.get(country, "Bu davlat haqida maʼlumot topilmadi.")
-        await update.message.reply_text(
-            f"Ishora: {hint_text}",
-            reply_markup=guess_reply_markup
-        )
-    elif user_id in pending_country_guesses:
-        country = pending_country_guesses[user_id]
-        hint_text = country_hints.get(country, "Bu davlat haqida maʼlumot topilmadi.")
-        await update.message.reply_text(
-            f"Ishora: {hint_text}",
-            reply_markup=guess_reply_markup
-        )
+    if chat_id in active_country_games:
+        country = active_country_games[chat_id]['country']
+        hint_text = country_hints.get(country, "Maʼlumot topilmadi.")
+        await update.message.reply_text(f"💡 Ishora: _{hint_text}_", parse_mode='Markdown',
+                                        reply_markup=guess_reply_markup)
+    elif chat_id in active_capital_games:
+        country = active_capital_games[chat_id]['country']
+        hint_text = country_hints.get(country, "Maʼlumot topilmadi.")
+        await update.message.reply_text(f"💡 Ishora: _{hint_text}_", parse_mode='Markdown',
+                                        reply_markup=guess_reply_markup)
     else:
         await update.message.reply_text(
-            "Faol taxmin yoʻq. /getcountry yoki /getcapital buyrugʻini ishlatib boshlang.",
+            "Faol oʻyin yoʻq. /getcountry yoki /getcapital bilan boshlang.",
             reply_markup=default_reply_markup
         )
 
 
 async def handle_guess(update: telegram.Update, context: telegram.ext.ContextTypes.DEFAULT_TYPE) -> None:
-    """Handler for text messages to guess the country for capital game."""
-    user_id = str(update.message.from_user.id)
-    guess = update.message.text.strip().lower()
-
-    if user_id in pending_capital_guesses:
-        correct_country = pending_capital_guesses[user_id]['country'].lower()
-        if guess == correct_country:
-            pending_capital_guesses[user_id]['job'].schedule_removal()
-            await update.message.reply_text(
-                "Toʻgʻri! Ajoyib.",
-                reply_markup=default_reply_markup
-            )
-            del pending_capital_guesses[user_id]
-        else:
-            await update.message.reply_text(
-                "Notoʻgʻri! Yana urinib koʻring yoki /hint buyrugʻidan foydalaning.",
-                reply_markup=guess_reply_markup
-            )
-    else:
-        await update.message.reply_text(
-            "Faol poytaxt taxmini yoʻq. /getcapital buyrugʻini ishlatib boshlang.",
-            reply_markup=default_reply_markup
-        )
-
-
-async def handle_webapp_data(update: telegram.Update, context: telegram.ext.ContextTypes.DEFAULT_TYPE) -> None:
-    """Handler for Web App data (country selection from map)."""
+    chat_id = _chat_key(update)
     user_id = str(update.effective_user.id)
-    web_app_data = update.effective_message.web_app_data.data
+    username = _tg_username(update)
+    text = update.message.text.strip()
 
-    try:
-        selected_country = json.loads(web_app_data)['country']
-    except (json.JSONDecodeError, KeyError):
-        await update.message.reply_text(
-            "Xatolik! Iltimos, xaritada davlatni qayta tanlang.",
-            reply_markup=default_reply_markup
-        )
+    if len(text) > 100:
         return
 
-    if user_id in pending_country_guesses:
-        correct_country = pending_country_guesses[user_id]
-        if selected_country.lower() == correct_country.lower():
-            await update.message.reply_text(
-                "Toʻgʻri! Ajoyib, siz xaritada **{}**ni topdingiz.".format(correct_country),
-                reply_markup=default_reply_markup
-            )
-            del pending_country_guesses[user_id]
+    # Route keyboard button presses to their command handlers
+    _button_routes = {
+        '🌍 davlat topish':  get_country,
+        '🏙 poytaxt topish': get_capital,
+        '💡 ishora':         hint,
+        '🏆 top':            top,
+        '📊 statistika':     stats,
+        '♻️ reset':          reset,
+        '❓ yordam':         help_command,
+    }
+    route = _button_routes.get(text.lower())
+    if route:
+        await route(update, context)
+        return
+
+    guess = text.lower()
+    in_group = _is_group(update)
+
+    # --- Country game ---
+    if chat_id in active_country_games:
+        correct = active_country_games[chat_id]['country']
+        if guess == correct.lower():
+            record_result(user_id, username, 'country', 'correct')
+            del active_country_games[chat_id]
+            name = _player_name(update)
+            if in_group:
+                msg = f"🎉 <b>{_html.escape(name)}</b> toʻgʻri topdi! Javob: <b>{_html.escape(correct)}</b>"
+            else:
+                msg = f"✅ Toʻgʻri! Ajoyib! Javob: <b>{_html.escape(correct)}</b>"
+            await update.message.reply_text(msg, parse_mode='HTML', reply_markup=default_reply_markup)
+            logger.info("Davlat toʻgʻri: chat=%s user=%s — %s", chat_id, user_id, correct)
         else:
-            await update.message.reply_text(
-                "Notoʻgʻri! Siz **{}**ni tanladingiz, lekin toʻgʻri javob **{}**. /hint buyrugʻidan foydalaning yoki qayta urinib koʻring.".format(
-                    selected_country, correct_country
-                ),
-                reply_markup=guess_reply_markup
-            )
-    else:
+            if not in_group:
+                await update.message.reply_text(
+                    "❌ Notoʻgʻri! Yana urinib koʻring yoki /hint.",
+                    reply_markup=guess_reply_markup
+                )
+        return
+
+    # --- Capital game ---
+    if chat_id in active_capital_games:
+        correct = active_capital_games[chat_id]['country']
+        if guess == correct.lower():
+            _cancel_capital_job(chat_id)
+            record_result(user_id, username, 'capital', 'correct')
+            del active_capital_games[chat_id]
+            name = _player_name(update)
+            if in_group:
+                msg = f"🎉 <b>{_html.escape(name)}</b> toʻgʻri topdi! Javob: <b>{_html.escape(correct)}</b>"
+            else:
+                msg = f"✅ Toʻgʻri! Ajoyib!"
+            await update.message.reply_text(msg, parse_mode='HTML', reply_markup=default_reply_markup)
+            logger.info("Poytaxt toʻgʻri: chat=%s user=%s — %s", chat_id, user_id, correct)
+        else:
+            record_result(user_id, username, 'capital', 'wrong')
+            if not in_group:
+                await update.message.reply_text(
+                    "❌ Notoʻgʻri! Yana urinib koʻring yoki /hint.",
+                    reply_markup=guess_reply_markup
+                )
+        return
+
+    # No active game — only respond in private chats to avoid noise in groups
+    if not in_group:
         await update.message.reply_text(
-            "Faol davlat taxmini yoʻq. /getcountry buyrugʻini ishlatib boshlang.",
+            "Faol oʻyin yoʻq. /getcountry yoki /getcapital bilan boshlang.",
             reply_markup=default_reply_markup
         )
+
+
+async def stats(update: telegram.Update, context: telegram.ext.ContextTypes.DEFAULT_TYPE) -> None:
+    user_id = str(update.effective_user.id)
+    username = _tg_username(update)
+    name = _player_name(update)
+    s = get_stats(user_id, username)
+
+    total_country = s['correct_country'] + s['wrong_country']
+    total_capital = s['correct_capital'] + s['wrong_capital'] + s['timeout_capital']
+    country_pct = round(s['correct_country'] / total_country * 100) if total_country else 0
+    capital_pct = round(s['correct_capital'] / total_capital * 100) if total_capital else 0
+
+    text = (
+        f"📊 <b>{_html.escape(name)} — statistika</b>\n\n"
+        f"🌍 Davlat topish:\n"
+        f"  ✅ {s['correct_country']}  ❌ {s['wrong_country']}  ({country_pct}%)\n\n"
+        f"🏙 Poytaxt topish:\n"
+        f"  ✅ {s['correct_capital']}  ❌ {s['wrong_capital']}  ⏰ {s['timeout_capital']}  ({capital_pct}%)"
+    )
+    await update.message.reply_text(text, parse_mode='HTML', reply_markup=default_reply_markup)
+
+
+async def top(update: telegram.Update, context: telegram.ext.ContextTypes.DEFAULT_TYPE) -> None:
+    rows = get_top_users(10)
+    if not rows:
+        await update.message.reply_text("Hali hech kim oʻynamagan.", reply_markup=default_reply_markup)
+        return
+
+    medals = ['🥇', '🥈', '🥉']
+    lines = ["🏆 <b>Top oʻyinchilar</b>\n"]
+    for i, (name, cc, cap, total) in enumerate(rows, 1):
+        medal = medals[i - 1] if i <= 3 else f"{i}."
+        lines.append(f"{medal} {_html.escape(str(name))} — {total} toʻgʻri (🌍{cc} 🏙{cap})")
+
+    await update.message.reply_text('\n'.join(lines), parse_mode='HTML', reply_markup=default_reply_markup)
 
 
 async def reset(update: telegram.Update, context: telegram.ext.ContextTypes.DEFAULT_TYPE) -> None:
-    """Handler for the /reset command to clear assigned countries and guesses."""
-    for user_id in list(pending_capital_guesses.keys()):
-        if 'job' in pending_capital_guesses[user_id]:
-            pending_capital_guesses[user_id]['job'].schedule_removal()
-    assigned_countries.clear()
-    pending_capital_guesses.clear()
-    pending_country_guesses.clear()
-    used_countries_for_capital.clear()
+    chat_id = _chat_key(update)
+    _cancel_capital_job(chat_id)
+    active_country_games.pop(chat_id, None)
+    active_capital_games.pop(chat_id, None)
+    used_capital_countries[chat_id].clear()
+    used_country_countries[chat_id].clear()
+    logger.info("Reset: chat=%s by %s", chat_id, _tg_username(update))
     await update.message.reply_text(
-        "Oʻyin qayta tiklandi! Barcha davlatlar yana mavjud.",
+        "♻️ Oʻyin qayta tiklandi! Barcha davlatlar yana mavjud.",
         reply_markup=default_reply_markup
     )
 
 
 async def help_command(update: telegram.Update, context: telegram.ext.ContextTypes.DEFAULT_TYPE) -> None:
-    """Handler for the /help command."""
-    help_text = (
-        "/start - Botni ishga tushirish\n"
-        "/getcountry - Tasodifiy davlat olish va xaritada topish\n"
-        "/getcapital - Tasodifiy poytaxt olish va davlatni taxmin qilish (1 daqiqa)\n"
-        "/hint - Davlat yoki poytaxt taxmin qilishda yordam olish\n"
-        "/reset - Oʻyinni qayta boshlash\n"
-        "/help - Ushbu yordam xabarini koʻrsatish"
+    text = (
+        "/register Ism — ismingizni saqlash (guruh natijalari uchun)\n"
+        "/getcountry — ishora asosida davlat toping\n"
+        "/getcapital — poytaxt asosida davlat toping (60 soniya)\n"
+        "/hint — qoʻshimcha ishora\n"
+        "/stats — shaxsiy statistika\n"
+        "/top — eng yaxshi oʻyinchilar\n"
+        "/reset — oʻyinni qayta boshlash\n"
+        "/help — yordam"
     )
-    await update.message.reply_text(help_text, reply_markup=default_reply_markup)
+    await update.message.reply_text(text, reply_markup=default_reply_markup)
+
+
+async def handle_webapp_data(update: telegram.Update, context: telegram.ext.ContextTypes.DEFAULT_TYPE) -> None:
+    chat_id = _chat_key(update)
+    user_id = str(update.effective_user.id)
+    username = _tg_username(update)
+    raw = update.effective_message.web_app_data.data
+
+    try:
+        selected_country = json.loads(raw)['country']
+    except (json.JSONDecodeError, KeyError) as e:
+        logger.warning("WebApp xatosi: %s — %s", user_id, e)
+        await update.message.reply_text("Xatolik! Xaritada davlatni qayta tanlang.", reply_markup=guess_reply_markup)
+        return
+
+    if chat_id not in active_country_games:
+        await update.message.reply_text("Faol davlat oʻyini yoʻq. Davlat topish tugmasini bosing.",
+                                        reply_markup=default_reply_markup)
+        return
+
+    correct = active_country_games[chat_id]['country']
+    name = _player_name(update)
+    in_group = _is_group(update)
+
+    if selected_country.lower() == correct.lower():
+        record_result(user_id, username, 'country', 'correct')
+        del active_country_games[chat_id]
+        if in_group:
+            msg = f"🎉 <b>{_html.escape(name)}</b> xaritada toʻgʻri topdi! Javob: <b>{_html.escape(correct)}</b>"
+        else:
+            msg = f"✅ Toʻgʻri! Siz <b>{_html.escape(correct)}</b>ni xaritada topdingiz!"
+        await update.message.reply_text(msg, parse_mode='HTML', reply_markup=default_reply_markup)
+        logger.info("Xarita toʻgʻri: chat=%s user=%s — %s", chat_id, user_id, correct)
+    else:
+        record_result(user_id, username, 'country', 'wrong')
+        msg = (f"❌ Notoʻgʻri! Siz <b>{_html.escape(selected_country)}</b>ni tanladingiz.\n"
+               f"Yana urinib koʻring yoki 💡 Ishora tugmasini bosing.")
+        await update.message.reply_text(msg, parse_mode='HTML', reply_markup=guess_reply_markup)
 
 
 def main() -> None:
-    """Main function to run the Telegram bot."""
-    # Replace 'YOUR_BOT_TOKEN' with your actual Telegram Bot Token
-    application = Application.builder().token('8290757136:AAHum1MEwq_YR9PF3floNoNnB7tnYjM84wc').build()
+    init_db()
+    logger.info("Bot ishga tushmoqda...")
 
-    # Add handlers for commands
-    application.add_handler(CommandHandler("start", start))
+    application = Application.builder().token(BOT_TOKEN).build()
+
+    application.add_handler(CommandHandler("start",      start))
+    application.add_handler(CommandHandler("register",   register))
     application.add_handler(CommandHandler("getcountry", get_country))
     application.add_handler(CommandHandler("getcapital", get_capital))
-    application.add_handler(CommandHandler("hint", hint))
-    application.add_handler(CommandHandler("reset", reset))
-    application.add_handler(CommandHandler("help", help_command))
-
-    # Add handlers for guesses and Web App data
+    application.add_handler(CommandHandler("hint",       hint))
+    application.add_handler(CommandHandler("stats",      stats))
+    application.add_handler(CommandHandler("top",        top))
+    application.add_handler(CommandHandler("reset",      reset))
+    application.add_handler(CommandHandler("help",       help_command))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_guess))
-    application.add_handler(MessageHandler(filters.WEB_APP_DATA, handle_webapp_data))
+    application.add_handler(MessageHandler(filters.StatusUpdate.WEB_APP_DATA, handle_webapp_data))
 
-    # Start the bot
     application.run_polling(allowed_updates=telegram.Update.ALL_TYPES)
 
 
