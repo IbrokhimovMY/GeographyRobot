@@ -797,6 +797,18 @@ async def help_command(update: telegram.Update, context: telegram.ext.ContextTyp
     await update.message.reply_text(text, reply_markup=default_reply_markup)
 
 
+def _map_keyboard() -> ReplyKeyboardMarkup:
+    """Keyboard with the map WebApp button for retrying after a wrong guess."""
+    return ReplyKeyboardMarkup(
+        [
+            [telegram.KeyboardButton("🗺 Xaritada topish", web_app=WebAppInfo(url=WEBAPP_URL))],
+            ['💡 Ishora', '♻️ Reset'],
+        ],
+        resize_keyboard=True,
+        one_time_keyboard=False,
+    )
+
+
 async def handle_webapp_data(update: telegram.Update, context: telegram.ext.ContextTypes.DEFAULT_TYPE) -> None:
     chat_id = _chat_key(update)
     user_id = str(update.effective_user.id)
@@ -807,7 +819,7 @@ async def handle_webapp_data(update: telegram.Update, context: telegram.ext.Cont
         selected_country = json.loads(raw)['country']
     except (json.JSONDecodeError, KeyError) as e:
         logger.warning("WebApp xatosi: %s — %s", user_id, e)
-        await update.message.reply_text("Xatolik! Xaritada davlatni qayta tanlang.", reply_markup=guess_reply_markup)
+        await update.message.reply_text("Xatolik! Xaritada davlatni qayta tanlang.", reply_markup=_map_keyboard())
         return
 
     if chat_id not in active_country_games:
@@ -831,8 +843,9 @@ async def handle_webapp_data(update: telegram.Update, context: telegram.ext.Cont
     else:
         record_result(user_id, username, 'country', 'wrong')
         msg = (f"❌ Notoʻgʻri! Siz <b>{_html.escape(selected_country)}</b>ni tanladingiz.\n"
-               f"Yana urinib koʻring yoki 💡 Ishora tugmasini bosing.")
-        await update.message.reply_text(msg, parse_mode='HTML', reply_markup=guess_reply_markup)
+               f"Xaritada qayta urinib koʻring yoki 💡 Ishora tugmasini bosing.")
+        # Keep the map button so the user can open the map again to retry
+        await update.message.reply_text(msg, parse_mode='HTML', reply_markup=_map_keyboard())
 
 
 def main() -> None:
