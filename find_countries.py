@@ -872,7 +872,9 @@ async def help_command(update: telegram.Update, context: telegram.ext.ContextTyp
 
 
 def _map_keyboard() -> ReplyKeyboardMarkup:
-    """Keyboard with the map WebApp button for retrying after a wrong guess."""
+    """Keyboard with the map WebApp button. Falls back to guess_reply_markup if WEBAPP_URL not set."""
+    if not WEBAPP_URL or WEBAPP_URL == 'https://your-domain.com/map.html':
+        return guess_reply_markup
     return ReplyKeyboardMarkup(
         [
             [telegram.KeyboardButton("🗺 Xaritada topish", web_app=WebAppInfo(url=WEBAPP_URL))],
@@ -893,12 +895,21 @@ async def handle_webapp_data(update: telegram.Update, context: telegram.ext.Cont
         selected_country = json.loads(raw)['country']
     except (json.JSONDecodeError, KeyError) as e:
         logger.warning("WebApp xatosi: %s — %s", user_id, e)
-        await update.message.reply_text("Xatolik! Xaritada davlatni qayta tanlang.", reply_markup=_map_keyboard())
+        # Use send_message (not reply_text) — replying to a web_app_data message
+        # can prevent the keyboard from updating correctly in Telegram clients
+        await context.bot.send_message(
+            chat_id=int(chat_id),
+            text="Xatolik! Xaritada davlatni qayta tanlang.",
+            reply_markup=_map_keyboard()
+        )
         return
 
     if chat_id not in active_country_games:
-        await update.message.reply_text("Faol davlat oʻyini yoʻq. Davlat topish tugmasini bosing.",
-                                        reply_markup=default_reply_markup)
+        await context.bot.send_message(
+            chat_id=int(chat_id),
+            text="Faol davlat oʻyini yoʻq. Davlat topish tugmasini bosing.",
+            reply_markup=default_reply_markup
+        )
         return
 
     correct = active_country_games[chat_id]['country']
@@ -915,14 +926,17 @@ async def handle_webapp_data(update: telegram.Update, context: telegram.ext.Cont
             msg = f"🎉 <b>{_html.escape(name)}</b> xaritada toʻgʻri topdi! Javob: <b>{_html.escape(correct)}</b>"
         else:
             msg = f"✅ Toʻgʻri! Siz <b>{_html.escape(correct)}</b>ni xaritada topdingiz!"
-        await update.message.reply_text(msg, parse_mode='HTML', reply_markup=default_reply_markup)
+        await context.bot.send_message(
+            chat_id=int(chat_id), text=msg, parse_mode='HTML', reply_markup=default_reply_markup
+        )
         logger.info("Xarita toʻgʻri: chat=%s user=%s — %s", chat_id, user_id, correct)
     else:
         record_result(user_id, username, 'country', 'wrong')
         msg = (f"❌ Notoʻgʻri! Siz <b>{_html.escape(selected_country)}</b>ni tanladingiz.\n"
                f"Xaritada qayta urinib koʻring yoki 💡 Ishora tugmasini bosing.")
-        # Keep the map button visible so the user can open the map again to retry
-        await update.message.reply_text(msg, parse_mode='HTML', reply_markup=_map_keyboard())
+        await context.bot.send_message(
+            chat_id=int(chat_id), text=msg, parse_mode='HTML', reply_markup=_map_keyboard()
+        )
 
 
 def main() -> None:
