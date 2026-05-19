@@ -68,6 +68,80 @@ COUNTRIES = [
 
 COUNTRIES_SET = set(COUNTRIES)
 
+# Maps English name (sent by map.html) → Uzbek name (used internally by the game)
+MAP_EN_TO_UZ: dict = {
+    "Afghanistan": "Afgʻoniston", "Albania": "Albaniya", "Algeria": "Jazoir",
+    "Andorra": "Andorra", "Angola": "Angola", "Antigua and Barbuda": "Antigua va Barbuda",
+    "Argentina": "Argentina", "Armenia": "Armaniston", "Australia": "Avstraliya",
+    "Austria": "Avstriya", "Azerbaijan": "Ozarbayjon", "Bahamas": "Bagama orollari",
+    "Bahrain": "Bahrayn", "Bangladesh": "Bangladesh", "Barbados": "Barbados",
+    "Belarus": "Belarus", "Belgium": "Belgiya", "Belize": "Beliz", "Benin": "Benin",
+    "Bhutan": "Butan", "Bolivia": "Boliviya", "Bosnia and Herzegovina": "Bosniya va Gertsegovina",
+    "Botswana": "Botsvana", "Brazil": "Braziliya", "Brunei": "Bruney",
+    "Bulgaria": "Bolgariya", "Burkina Faso": "Burkina Faso", "Burundi": "Burundi",
+    "Cape Verde": "Kabo Verde", "Cambodia": "Kambodja", "Cameroon": "Kamerun",
+    "Canada": "Kanada", "Central African Republic": "Markaziy Afrika Respublikasi",
+    "Chad": "Chad", "Chile": "Chili", "China": "Xitoy", "Colombia": "Kolumbiya",
+    "Comoros": "Komor orollari",
+    "Democratic Republic of the Congo": "Kongo Demokratik Respublikasi",
+    "Republic of the Congo": "Kongo Respublikasi",
+    "Costa Rica": "Kosta Rika", "Croatia": "Xorvatiya", "Cuba": "Kuba",
+    "Cyprus": "Qibris", "Czech Republic": "Chexiya", "Denmark": "Daniya",
+    "Djibouti": "Jibuti", "Dominica": "Dominika", "Dominican Republic": "Dominikan Respublikasi",
+    "Ecuador": "Ekvador", "Egypt": "Misr", "El Salvador": "Salvador",
+    "Equatorial Guinea": "Ekvatorial Gvineya", "Eritrea": "Eritreya",
+    "Estonia": "Estoniya", "Eswatini": "Esvatini", "Ethiopia": "Efiopiya",
+    "Fiji": "Fiji", "Finland": "Finlandiya", "France": "Fransiya", "Gabon": "Gabon",
+    "Gambia": "Gambiya", "Georgia": "Gruziya", "Germany": "Germaniya", "Ghana": "Gana",
+    "Greece": "Gretsiya", "Grenada": "Grenada", "Guatemala": "Gvatemala",
+    "Guinea": "Gvineya", "Guinea-Bissau": "Gvineya-Bisau", "Guyana": "Gayana",
+    "Haiti": "Gaiti", "Honduras": "Gonduras", "Hungary": "Vengriya",
+    "Iceland": "Islandiya", "India": "Hindiston", "Indonesia": "Indoneziya",
+    "Iran": "Eron", "Iraq": "Iroq", "Ireland": "Irlandiya", "Israel": "Isroil",
+    "Italy": "Italiya", "Jamaica": "Yamayka", "Japan": "Yaponiya",
+    "Jordan": "Iordaniya", "Kazakhstan": "Qozogʻiston", "Kenya": "Keniya",
+    "Kiribati": "Kiribati", "Kuwait": "Kuvayt", "Kyrgyzstan": "Qirgʻiziston",
+    "Laos": "Laos", "Latvia": "Latviya", "Lebanon": "Livan", "Lesotho": "Lesoto",
+    "Liberia": "Liberiya", "Libya": "Liviya", "Liechtenstein": "Lixtenshteyn",
+    "Lithuania": "Litva", "Luxembourg": "Lyuksemburg", "Madagascar": "Madagaskar",
+    "Malawi": "Malavi", "Malaysia": "Malayziya", "Maldives": "Maldiv orollari",
+    "Mali": "Mali", "Malta": "Malta", "Marshall Islands": "Marshall orollari",
+    "Mauritania": "Mavritaniya", "Mauritius": "Mavrikiy", "Mexico": "Meksika",
+    "Micronesia": "Mikroneziya", "Moldova": "Moldova", "Monaco": "Monako",
+    "Mongolia": "Moʻgʻuliston", "Montenegro": "Chernogoriya", "Morocco": "Marokash",
+    "Mozambique": "Mozambik", "Myanmar": "Myanma", "Namibia": "Namibiya",
+    "Nauru": "Nauru", "Nepal": "Nepal", "Netherlands": "Niderlandiya",
+    "New Zealand": "Yangi Zelandiya", "Nicaragua": "Nikaragua", "Niger": "Niger",
+    "Nigeria": "Nigeriya", "North Korea": "Shimoliy Koreya",
+    "North Macedonia": "Shimoliy Makedoniya", "Norway": "Norvegiya", "Oman": "Ummon",
+    "Pakistan": "Pokiston", "Palau": "Palau", "Palestine": "Falastin",
+    "Panama": "Panama", "Papua New Guinea": "Papua Yangi Gvineya",
+    "Paraguay": "Paragvay", "Peru": "Peru", "Philippines": "Filippin",
+    "Poland": "Polsha", "Portugal": "Portugaliya", "Qatar": "Qatar",
+    "Romania": "Ruminiya", "Russia": "Rossiya", "Rwanda": "Ruanda",
+    "Saint Kitts and Nevis": "Sent Kitts va Nevis", "Saint Lucia": "Sent Lusiya",
+    "Saint Vincent and the Grenadines": "Sent Vinsent va Grenadinlar",
+    "Samoa": "Samoa", "San Marino": "San Marino",
+    "Sao Tome and Principe": "San-Tome va Prinsipi", "Saudi Arabia": "Saudiya Arabistoni",
+    "Senegal": "Senegal", "Serbia": "Serbiya", "Seychelles": "Seyshell orollari",
+    "Sierra Leone": "Syerra Leone", "Singapore": "Singapur", "Slovakia": "Slovakiya",
+    "Slovenia": "Sloveniya", "Solomon Islands": "Solomon orollari", "Somalia": "Somali",
+    "South Africa": "Janubiy Afrika", "South Korea": "Janubiy Koreya",
+    "South Sudan": "Janubiy Sudan", "Spain": "Ispaniya", "Sri Lanka": "Shri Lanka",
+    "Sudan": "Sudan", "Suriname": "Surinam", "Sweden": "Shvetsiya",
+    "Switzerland": "Shveytsariya", "Syria": "Suriya", "Taiwan": "Tayvan",
+    "Tajikistan": "Tojikiston", "Tanzania": "Tanzaniya", "Thailand": "Tailand",
+    "Timor-Leste": "Sharqiy Timor", "Togo": "Togo", "Tonga": "Tonga",
+    "Trinidad and Tobago": "Trinidad va Tobago", "Tunisia": "Tunis",
+    "Turkey": "Turkiya", "Turkmenistan": "Turkmaniston", "Tuvalu": "Tuvalu",
+    "Uganda": "Uganda", "Ukraine": "Ukraina",
+    "United Arab Emirates": "Birlashgan Arab Amirliklari",
+    "United Kingdom": "Buyuk Britaniya", "United States": "Amerika Qoʻshma Shtatlari",
+    "Uruguay": "Urugvay", "Uzbekistan": "Oʻzbekiston", "Vanuatu": "Vanuatu",
+    "Vatican City": "Vatikan", "Venezuela": "Venesuela", "Vietnam": "Vyetnam",
+    "Yemen": "Yaman", "Zambia": "Zambiya", "Zimbabwe": "Zimbabve",
+}
+
 countries_capitals = {
     "Afgʻoniston": "Kobul", "Albaniya": "Tirana", "Jazoir": "Jazoir",
     "Andorra": "Andorra la Vella", "Angola": "Luanda", "Antigua va Barbuda": "Sent-Jons",
@@ -797,6 +871,20 @@ async def help_command(update: telegram.Update, context: telegram.ext.ContextTyp
     await update.message.reply_text(text, reply_markup=default_reply_markup)
 
 
+def _map_keyboard() -> ReplyKeyboardMarkup:
+    """Keyboard with the map WebApp button. Falls back to guess_reply_markup if WEBAPP_URL not set."""
+    if not WEBAPP_URL or WEBAPP_URL == 'https://your-domain.com/map.html':
+        return guess_reply_markup
+    return ReplyKeyboardMarkup(
+        [
+            [telegram.KeyboardButton("🗺 Xaritada topish", web_app=WebAppInfo(url=WEBAPP_URL))],
+            ['💡 Ishora', '♻️ Reset'],
+        ],
+        resize_keyboard=True,
+        one_time_keyboard=False,
+    )
+
+
 async def handle_webapp_data(update: telegram.Update, context: telegram.ext.ContextTypes.DEFAULT_TYPE) -> None:
     chat_id = _chat_key(update)
     user_id = str(update.effective_user.id)
@@ -807,32 +895,48 @@ async def handle_webapp_data(update: telegram.Update, context: telegram.ext.Cont
         selected_country = json.loads(raw)['country']
     except (json.JSONDecodeError, KeyError) as e:
         logger.warning("WebApp xatosi: %s — %s", user_id, e)
-        await update.message.reply_text("Xatolik! Xaritada davlatni qayta tanlang.", reply_markup=guess_reply_markup)
+        # Use send_message (not reply_text) — replying to a web_app_data message
+        # can prevent the keyboard from updating correctly in Telegram clients
+        await context.bot.send_message(
+            chat_id=int(chat_id),
+            text="Xatolik! Xaritada davlatni qayta tanlang.",
+            reply_markup=_map_keyboard()
+        )
         return
 
     if chat_id not in active_country_games:
-        await update.message.reply_text("Faol davlat oʻyini yoʻq. Davlat topish tugmasini bosing.",
-                                        reply_markup=default_reply_markup)
+        await context.bot.send_message(
+            chat_id=int(chat_id),
+            text="Faol davlat oʻyini yoʻq. Davlat topish tugmasini bosing.",
+            reply_markup=default_reply_markup
+        )
         return
 
     correct = active_country_games[chat_id]['country']
     name = _player_name(update)
     in_group = _is_group(update)
 
-    if selected_country.lower() == correct.lower():
+    # Map sends English names; convert to Uzbek before comparing with the stored game answer
+    selected_uz = MAP_EN_TO_UZ.get(selected_country, selected_country)
+
+    if selected_uz.lower() == correct.lower():
         record_result(user_id, username, 'country', 'correct')
         del active_country_games[chat_id]
         if in_group:
             msg = f"🎉 <b>{_html.escape(name)}</b> xaritada toʻgʻri topdi! Javob: <b>{_html.escape(correct)}</b>"
         else:
             msg = f"✅ Toʻgʻri! Siz <b>{_html.escape(correct)}</b>ni xaritada topdingiz!"
-        await update.message.reply_text(msg, parse_mode='HTML', reply_markup=default_reply_markup)
+        await context.bot.send_message(
+            chat_id=int(chat_id), text=msg, parse_mode='HTML', reply_markup=default_reply_markup
+        )
         logger.info("Xarita toʻgʻri: chat=%s user=%s — %s", chat_id, user_id, correct)
     else:
         record_result(user_id, username, 'country', 'wrong')
         msg = (f"❌ Notoʻgʻri! Siz <b>{_html.escape(selected_country)}</b>ni tanladingiz.\n"
-               f"Yana urinib koʻring yoki 💡 Ishora tugmasini bosing.")
-        await update.message.reply_text(msg, parse_mode='HTML', reply_markup=guess_reply_markup)
+               f"Xaritada qayta urinib koʻring yoki 💡 Ishora tugmasini bosing.")
+        await context.bot.send_message(
+            chat_id=int(chat_id), text=msg, parse_mode='HTML', reply_markup=_map_keyboard()
+        )
 
 
 def main() -> None:
