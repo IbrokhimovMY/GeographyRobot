@@ -10862,3 +10862,92 @@ telegram.error.Conflict: Conflict: terminated by other getUpdates request; make 
 2026-05-19 14:33:37,955 - INFO - HTTP Request: POST https://api.telegram.org/bot8871176388:AAFyjzThmAC_MWpvGzAyK-gJPt-UXQ6kgN4/getUpdates "HTTP/1.1 200 OK"
 2026-05-19 14:33:48,076 - INFO - HTTP Request: POST https://api.telegram.org/bot8871176388:AAFyjzThmAC_MWpvGzAyK-gJPt-UXQ6kgN4/getUpdates "HTTP/1.1 200 OK"
 2026-05-19 14:33:58,125 - INFO - HTTP Request: POST https://api.telegram.org/bot8871176388:AAFyjzThmAC_MWpvGzAyK-gJPt-UXQ6kgN4/getUpdates "HTTP/1.1 200 OK"
+2026-05-19 14:34:08,368 - INFO - HTTP Request: POST https://api.telegram.org/bot8871176388:AAFyjzThmAC_MWpvGzAyK-gJPt-UXQ6kgN4/getUpdates "HTTP/1.1 200 OK"
+2026-05-19 14:34:12,974 - INFO - HTTP Request: POST https://api.telegram.org/bot8871176388:AAFyjzThmAC_MWpvGzAyK-gJPt-UXQ6kgN4/getUpdates "HTTP/1.1 200 OK"
+2026-05-19 14:34:12,975 - INFO - Application is stopping. This might take a moment.
+2026-05-19 14:34:12,976 - INFO - Scheduler has been shut down
+2026-05-19 14:34:12,986 - INFO - Application.stop() complete
+2026-05-19 14:34:15,107 - INFO - Ma'lumotlar bazasi tayyor.
+2026-05-19 14:34:15,107 - INFO - Bot ishga tushmoqda...
+2026-05-19 14:34:15,946 - INFO - HTTP Request: POST https://api.telegram.org/bot8871176388:AAFyjzThmAC_MWpvGzAyK-gJPt-UXQ6kgN4/getMe "HTTP/1.1 200 OK"
+2026-05-19 14:34:16,108 - INFO - HTTP Request: POST https://api.telegram.org/bot8871176388:AAFyjzThmAC_MWpvGzAyK-gJPt-UXQ6kgN4/deleteWebhook "HTTP/1.1 200 OK"
+2026-05-19 14:34:16,111 - INFO - Scheduler started
+2026-05-19 14:34:16,111 - INFO - Application started
+2026-05-19 14:34:25,775 - INFO - HTTP Request: POST https://api.telegram.org/bot8871176388:AAFyjzThmAC_MWpvGzAyK-gJPt-UXQ6kgN4/getUpdates "HTTP/1.1 200 OK"
+2026-05-19 14:34:25,776 - INFO - Reset: chat=8714738737 by .
+2026-05-19 14:34:26,293 - INFO - HTTP Request: POST https://api.telegram.org/bot8871176388:AAFyjzThmAC_MWpvGzAyK-gJPt-UXQ6kgN4/sendMessage "HTTP/1.1 200 OK"
+2026-05-19 14:34:28,335 - INFO - HTTP Request: POST https://api.telegram.org/bot8871176388:AAFyjzThmAC_MWpvGzAyK-gJPt-UXQ6kgN4/getUpdates "HTTP/1.1 200 OK"
+2026-05-19 14:34:28,576 - INFO - HTTP Request: POST https://api.telegram.org/bot8871176388:AAFyjzThmAC_MWpvGzAyK-gJPt-UXQ6kgN4/sendMessage "HTTP/1.1 200 OK"
+2026-05-19 14:34:28,577 - INFO - Davlat oʻyini: chat=8714738737 → Togo
+2026-05-19 14:34:36,075 - INFO - HTTP Request: POST https://api.telegram.org/bot8871176388:AAFyjzThmAC_MWpvGzAyK-gJPt-UXQ6kgN4/getUpdates "HTTP/1.1 200 OK"
+2026-05-19 14:34:36,526 - INFO - HTTP Request: POST https://api.telegram.org/bot8871176388:AAFyjzThmAC_MWpvGzAyK-gJPt-UXQ6kgN4/sendMessage "HTTP/1.1 200 OK"
+2026-05-19 14:34:46,152 - INFO - HTTP Request: POST https://api.telegram.org/bot8871176388:AAFyjzThmAC_MWpvGzAyK-gJPt-UXQ6kgN4/getUpdates "HTTP/1.1 200 OK"
+2026-05-19 14:34:56,391 - INFO - HTTP Request: POST https://api.telegram.org/bot8871176388:AAFyjzThmAC_MWpvGzAyK-gJPt-UXQ6kgN4/getUpdates "HTTP/1.1 200 OK"
+2026-05-19 14:35:06,529 - INFO - HTTP Request: POST https://api.telegram.org/bot8871176388:AAFyjzThmAC_MWpvGzAyK-gJPt-UXQ6kgN4/getUpdates "HTTP/1.1 200 OK"
+2026-05-19 14:35:16,769 - INFO - HTTP Request: POST https://api.telegram.org/bot8871176388:AAFyjzThmAC_MWpvGzAyK-gJPt-UXQ6kgN4/getUpdates "HTTP/1.1 200 OK"
+2026-05-19 14:35:26,907 - INFO - HTTP Request: POST https://api.telegram.org/bot8871176388:AAFyjzThmAC_MWpvGzAyK-gJPt-UXQ6kgN4/getUpdates "HTTP/1.1 200 OK"
+2026-05-19 14:35:37,043 - INFO - HTTP Request: POST https://api.telegram.org/bot8871176388:AAFyjzThmAC_MWpvGzAyK-gJPt-UXQ6kgN4/getUpdates "HTTP/1.1 200 OK"
+2026-05-19 14:35:47,181 - INFO - HTTP Request: POST https://api.telegram.org/bot8871176388:AAFyjzThmAC_MWpvGzAyK-gJPt-UXQ6kgN4/getUpdates "HTTP/1.1 200 OK"
+2026-05-19 14:35:57,421 - INFO - HTTP Request: POST https://api.telegram.org/bot8871176388:AAFyjzThmAC_MWpvGzAyK-gJPt-UXQ6kgN4/getUpdates "HTTP/1.1 200 OK"
+2026-05-19 14:36:07,664 - INFO - HTTP Request: POST https://api.telegram.org/bot8871176388:AAFyjzThmAC_MWpvGzAyK-gJPt-UXQ6kgN4/getUpdates "HTTP/1.1 200 OK"
+2026-05-19 14:36:17,797 - INFO - HTTP Request: POST https://api.telegram.org/bot8871176388:AAFyjzThmAC_MWpvGzAyK-gJPt-UXQ6kgN4/getUpdates "HTTP/1.1 200 OK"
+2026-05-19 14:36:28,038 - INFO - HTTP Request: POST https://api.telegram.org/bot8871176388:AAFyjzThmAC_MWpvGzAyK-gJPt-UXQ6kgN4/getUpdates "HTTP/1.1 200 OK"
+2026-05-19 14:36:38,276 - INFO - HTTP Request: POST https://api.telegram.org/bot8871176388:AAFyjzThmAC_MWpvGzAyK-gJPt-UXQ6kgN4/getUpdates "HTTP/1.1 200 OK"
+2026-05-19 14:36:48,541 - INFO - HTTP Request: POST https://api.telegram.org/bot8871176388:AAFyjzThmAC_MWpvGzAyK-gJPt-UXQ6kgN4/getUpdates "HTTP/1.1 200 OK"
+2026-05-19 14:36:58,757 - INFO - HTTP Request: POST https://api.telegram.org/bot8871176388:AAFyjzThmAC_MWpvGzAyK-gJPt-UXQ6kgN4/getUpdates "HTTP/1.1 200 OK"
+2026-05-19 14:37:08,894 - INFO - HTTP Request: POST https://api.telegram.org/bot8871176388:AAFyjzThmAC_MWpvGzAyK-gJPt-UXQ6kgN4/getUpdates "HTTP/1.1 200 OK"
+2026-05-19 14:37:19,236 - INFO - HTTP Request: POST https://api.telegram.org/bot8871176388:AAFyjzThmAC_MWpvGzAyK-gJPt-UXQ6kgN4/getUpdates "HTTP/1.1 200 OK"
+2026-05-19 14:37:29,480 - INFO - HTTP Request: POST https://api.telegram.org/bot8871176388:AAFyjzThmAC_MWpvGzAyK-gJPt-UXQ6kgN4/getUpdates "HTTP/1.1 200 OK"
+2026-05-19 14:37:34,287 - INFO - HTTP Request: POST https://api.telegram.org/bot8871176388:AAFyjzThmAC_MWpvGzAyK-gJPt-UXQ6kgN4/getUpdates "HTTP/1.1 200 OK"
+2026-05-19 14:37:34,288 - INFO - Application is stopping. This might take a moment.
+2026-05-19 14:37:34,288 - INFO - Scheduler has been shut down
+2026-05-19 14:37:34,298 - INFO - Application.stop() complete
+2026-05-19 14:37:36,112 - INFO - Ma'lumotlar bazasi tayyor.
+2026-05-19 14:37:36,112 - INFO - Bot ishga tushmoqda...
+2026-05-19 14:37:36,849 - INFO - HTTP Request: POST https://api.telegram.org/bot8871176388:AAFyjzThmAC_MWpvGzAyK-gJPt-UXQ6kgN4/getMe "HTTP/1.1 200 OK"
+2026-05-19 14:37:36,950 - INFO - HTTP Request: POST https://api.telegram.org/bot8871176388:AAFyjzThmAC_MWpvGzAyK-gJPt-UXQ6kgN4/deleteWebhook "HTTP/1.1 200 OK"
+2026-05-19 14:37:36,952 - INFO - Scheduler started
+2026-05-19 14:37:36,952 - INFO - Application started
+2026-05-19 14:37:47,600 - INFO - HTTP Request: POST https://api.telegram.org/bot8871176388:AAFyjzThmAC_MWpvGzAyK-gJPt-UXQ6kgN4/getUpdates "HTTP/1.1 200 OK"
+2026-05-19 14:37:57,738 - INFO - HTTP Request: POST https://api.telegram.org/bot8871176388:AAFyjzThmAC_MWpvGzAyK-gJPt-UXQ6kgN4/getUpdates "HTTP/1.1 200 OK"
+2026-05-19 14:37:58,148 - INFO - HTTP Request: POST https://api.telegram.org/bot8871176388:AAFyjzThmAC_MWpvGzAyK-gJPt-UXQ6kgN4/getUpdates "HTTP/1.1 200 OK"
+2026-05-19 14:37:58,149 - INFO - Reset: chat=8714738737 by .
+2026-05-19 14:37:58,353 - INFO - HTTP Request: POST https://api.telegram.org/bot8871176388:AAFyjzThmAC_MWpvGzAyK-gJPt-UXQ6kgN4/sendMessage "HTTP/1.1 200 OK"
+2026-05-19 14:37:59,991 - INFO - HTTP Request: POST https://api.telegram.org/bot8871176388:AAFyjzThmAC_MWpvGzAyK-gJPt-UXQ6kgN4/getUpdates "HTTP/1.1 200 OK"
+2026-05-19 14:38:00,105 - INFO - HTTP Request: POST https://api.telegram.org/bot8871176388:AAFyjzThmAC_MWpvGzAyK-gJPt-UXQ6kgN4/sendMessage "HTTP/1.1 200 OK"
+2026-05-19 14:38:00,107 - INFO - Davlat oʻyini: chat=8714738737 → Mavritaniya
+2026-05-19 14:38:03,881 - INFO - HTTP Request: POST https://api.telegram.org/bot8871176388:AAFyjzThmAC_MWpvGzAyK-gJPt-UXQ6kgN4/getUpdates "HTTP/1.1 200 OK"
+2026-05-19 14:38:04,080 - INFO - HTTP Request: POST https://api.telegram.org/bot8871176388:AAFyjzThmAC_MWpvGzAyK-gJPt-UXQ6kgN4/sendMessage "HTTP/1.1 200 OK"
+2026-05-19 14:38:14,018 - INFO - HTTP Request: POST https://api.telegram.org/bot8871176388:AAFyjzThmAC_MWpvGzAyK-gJPt-UXQ6kgN4/getUpdates "HTTP/1.1 200 OK"
+2026-05-19 14:38:24,112 - INFO - HTTP Request: POST https://api.telegram.org/bot8871176388:AAFyjzThmAC_MWpvGzAyK-gJPt-UXQ6kgN4/getUpdates "HTTP/1.1 200 OK"
+2026-05-19 14:38:34,293 - INFO - HTTP Request: POST https://api.telegram.org/bot8871176388:AAFyjzThmAC_MWpvGzAyK-gJPt-UXQ6kgN4/getUpdates "HTTP/1.1 200 OK"
+2026-05-19 14:38:43,308 - INFO - HTTP Request: POST https://api.telegram.org/bot8871176388:AAFyjzThmAC_MWpvGzAyK-gJPt-UXQ6kgN4/getUpdates "HTTP/1.1 200 OK"
+2026-05-19 14:38:43,309 - INFO - /start: .
+2026-05-19 14:38:43,818 - INFO - HTTP Request: POST https://api.telegram.org/bot8871176388:AAFyjzThmAC_MWpvGzAyK-gJPt-UXQ6kgN4/sendMessage "HTTP/1.1 200 OK"
+2026-05-19 14:38:46,390 - INFO - HTTP Request: POST https://api.telegram.org/bot8871176388:AAFyjzThmAC_MWpvGzAyK-gJPt-UXQ6kgN4/getUpdates "HTTP/1.1 200 OK"
+2026-05-19 14:38:46,687 - INFO - HTTP Request: POST https://api.telegram.org/bot8871176388:AAFyjzThmAC_MWpvGzAyK-gJPt-UXQ6kgN4/sendMessage "HTTP/1.1 200 OK"
+2026-05-19 14:38:46,688 - INFO - Davlat oʻyini: chat=8714738737 → Namibiya
+2026-05-19 14:38:51,502 - INFO - HTTP Request: POST https://api.telegram.org/bot8871176388:AAFyjzThmAC_MWpvGzAyK-gJPt-UXQ6kgN4/getUpdates "HTTP/1.1 200 OK"
+2026-05-19 14:38:51,615 - INFO - HTTP Request: POST https://api.telegram.org/bot8871176388:AAFyjzThmAC_MWpvGzAyK-gJPt-UXQ6kgN4/sendMessage "HTTP/1.1 200 OK"
+2026-05-19 14:39:02,452 - INFO - HTTP Request: POST https://api.telegram.org/bot8871176388:AAFyjzThmAC_MWpvGzAyK-gJPt-UXQ6kgN4/getUpdates "HTTP/1.1 200 OK"
+2026-05-19 14:39:12,692 - INFO - HTTP Request: POST https://api.telegram.org/bot8871176388:AAFyjzThmAC_MWpvGzAyK-gJPt-UXQ6kgN4/getUpdates "HTTP/1.1 200 OK"
+2026-05-19 14:39:22,830 - INFO - HTTP Request: POST https://api.telegram.org/bot8871176388:AAFyjzThmAC_MWpvGzAyK-gJPt-UXQ6kgN4/getUpdates "HTTP/1.1 200 OK"
+2026-05-19 14:39:32,969 - INFO - HTTP Request: POST https://api.telegram.org/bot8871176388:AAFyjzThmAC_MWpvGzAyK-gJPt-UXQ6kgN4/getUpdates "HTTP/1.1 200 OK"
+2026-05-19 14:39:43,108 - INFO - HTTP Request: POST https://api.telegram.org/bot8871176388:AAFyjzThmAC_MWpvGzAyK-gJPt-UXQ6kgN4/getUpdates "HTTP/1.1 200 OK"
+2026-05-19 14:39:53,141 - INFO - HTTP Request: POST https://api.telegram.org/bot8871176388:AAFyjzThmAC_MWpvGzAyK-gJPt-UXQ6kgN4/getUpdates "HTTP/1.1 200 OK"
+2026-05-19 14:40:03,379 - INFO - HTTP Request: POST https://api.telegram.org/bot8871176388:AAFyjzThmAC_MWpvGzAyK-gJPt-UXQ6kgN4/getUpdates "HTTP/1.1 200 OK"
+2026-05-19 14:40:13,519 - INFO - HTTP Request: POST https://api.telegram.org/bot8871176388:AAFyjzThmAC_MWpvGzAyK-gJPt-UXQ6kgN4/getUpdates "HTTP/1.1 200 OK"
+2026-05-19 14:40:23,658 - INFO - HTTP Request: POST https://api.telegram.org/bot8871176388:AAFyjzThmAC_MWpvGzAyK-gJPt-UXQ6kgN4/getUpdates "HTTP/1.1 200 OK"
+2026-05-19 14:40:33,894 - INFO - HTTP Request: POST https://api.telegram.org/bot8871176388:AAFyjzThmAC_MWpvGzAyK-gJPt-UXQ6kgN4/getUpdates "HTTP/1.1 200 OK"
+2026-05-19 14:40:43,929 - INFO - HTTP Request: POST https://api.telegram.org/bot8871176388:AAFyjzThmAC_MWpvGzAyK-gJPt-UXQ6kgN4/getUpdates "HTTP/1.1 200 OK"
+2026-05-19 14:40:54,124 - INFO - HTTP Request: POST https://api.telegram.org/bot8871176388:AAFyjzThmAC_MWpvGzAyK-gJPt-UXQ6kgN4/getUpdates "HTTP/1.1 200 OK"
+2026-05-19 14:41:04,204 - INFO - HTTP Request: POST https://api.telegram.org/bot8871176388:AAFyjzThmAC_MWpvGzAyK-gJPt-UXQ6kgN4/getUpdates "HTTP/1.1 200 OK"
+2026-05-19 14:41:15,057 - INFO - HTTP Request: POST https://api.telegram.org/bot8871176388:AAFyjzThmAC_MWpvGzAyK-gJPt-UXQ6kgN4/getUpdates "HTTP/1.1 200 OK"
+2026-05-19 14:41:25,809 - INFO - HTTP Request: POST https://api.telegram.org/bot8871176388:AAFyjzThmAC_MWpvGzAyK-gJPt-UXQ6kgN4/getUpdates "HTTP/1.1 200 OK"
+2026-05-19 14:41:36,151 - INFO - HTTP Request: POST https://api.telegram.org/bot8871176388:AAFyjzThmAC_MWpvGzAyK-gJPt-UXQ6kgN4/getUpdates "HTTP/1.1 200 OK"
+2026-05-19 14:41:46,288 - INFO - HTTP Request: POST https://api.telegram.org/bot8871176388:AAFyjzThmAC_MWpvGzAyK-gJPt-UXQ6kgN4/getUpdates "HTTP/1.1 200 OK"
+2026-05-19 14:41:56,937 - INFO - HTTP Request: POST https://api.telegram.org/bot8871176388:AAFyjzThmAC_MWpvGzAyK-gJPt-UXQ6kgN4/getUpdates "HTTP/1.1 200 OK"
+2026-05-19 14:42:05,700 - INFO - HTTP Request: POST https://api.telegram.org/bot8871176388:AAFyjzThmAC_MWpvGzAyK-gJPt-UXQ6kgN4/getUpdates "HTTP/1.1 200 OK"
+2026-05-19 14:42:05,701 - INFO - Application is stopping. This might take a moment.
+2026-05-19 14:42:05,701 - INFO - Scheduler has been shut down
+2026-05-19 14:42:05,712 - INFO - Application.stop() complete
