@@ -37,20 +37,9 @@ def _uname(update: Update) -> str:
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    user_id = _uid(update)
-    existing_name = get_display_name(user_id)
-
-    if existing_name:
-        # Returning user — skip onboarding
-        lang = get_user_lang(user_id)
-        await update.message.reply_text(
-            t(lang, 'welcome'),
-            reply_markup=default_kb(lang),
-        )
-        return ConversationHandler.END
-
-    # Send with ReplyKeyboardRemove to dismiss any existing keyboard, then
-    # edit the same message to attach the inline language buttons — one clean message.
+    # Always remove any existing reply keyboard and show language buttons.
+    # Returning users skip the name step (handled in lang_selected) but still
+    # pick their language so the keyboard is never shown before they do.
     msg = await update.message.reply_text(
         t('uz', 'onboard_choose_lang'),
         reply_markup=ReplyKeyboardRemove(),
@@ -71,12 +60,22 @@ async def lang_selected(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
     set_user_lang(user_id, username, lang)
 
     await query.edit_message_text(t(lang, 'language_set'))
+
+    # Returning user (already has a name) — go straight to main keyboard
+    if get_display_name(user_id):
+        await context.bot.send_message(
+            chat_id=query.message.chat_id,
+            text=t(lang, 'welcome'),
+            reply_markup=default_kb(lang),
+        )
+        return ConversationHandler.END
+
+    # New user — ask for name, keep keyboard hidden
     await context.bot.send_message(
         chat_id=query.message.chat_id,
         text=t(lang, 'onboard_enter_name'),
         reply_markup=ReplyKeyboardRemove(),
     )
-    # Store chosen lang so the name step can use it without a DB call
     context.user_data['onboard_lang'] = lang
     return NAME
 
