@@ -10,8 +10,12 @@ from database import (
     get_stats, get_top_users,
 )
 from keyboards import default_kb, CHANGE_LANG_KB
-from state import active_country_games, active_capital_games, cancel_capital_job
-from state import used_country_countries, used_capital_countries
+from state import (
+    active_country_games, active_capital_games, active_flag_games,
+    cancel_capital_job, cancel_country_job, cancel_flag_job,
+    used_country_countries, used_capital_countries,
+)
+from handlers.flag import used_flag_countries
 from translations import t
 
 logger = logging.getLogger(__name__)
@@ -53,6 +57,7 @@ async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         + t(lang, 'stats_capital',
             correct=s['correct_capital'], wrong=s['wrong_capital'],
             timeout=s['timeout_capital'], pct=capital_pct)
+        + t(lang, 'stats_streak', streak=s['streak'], best=s['best_streak'])
     )
     await update.message.reply_text(text, parse_mode='HTML', reply_markup=default_kb(lang))
 
@@ -79,10 +84,14 @@ async def reset(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     chat_id = str(update.effective_chat.id)
     lang = _lang(update)
     cancel_capital_job(chat_id)
+    cancel_country_job(chat_id)
+    cancel_flag_job(chat_id)
     active_country_games.pop(chat_id, None)
     active_capital_games.pop(chat_id, None)
+    active_flag_games.pop(chat_id, None)
     used_capital_countries[chat_id].clear()
     used_country_countries[chat_id].clear()
+    used_flag_countries[chat_id].clear()
     logger.info("Reset: chat=%s by %s", chat_id, _uname(update))
     await update.message.reply_text(t(lang, 'reset_done'), reply_markup=default_kb(lang))
 

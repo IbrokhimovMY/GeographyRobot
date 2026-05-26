@@ -31,6 +31,11 @@ def init_db() -> None:
         for col, definition in [
             ('display_name', 'TEXT DEFAULT ""'),
             ('language', "TEXT DEFAULT 'uz'"),
+            ('daily_facts', 'INTEGER DEFAULT 0'),
+            ('streak', 'INTEGER DEFAULT 0'),
+            ('best_streak', 'INTEGER DEFAULT 0'),
+            ('difficulty', "TEXT DEFAULT 'normal'"),
+            ('continent_filter', "TEXT DEFAULT 'all'"),
         ]:
             try:
                 conn.execute(f'ALTER TABLE users ADD COLUMN {col} {definition}')
@@ -100,14 +105,85 @@ def get_stats(user_id: str, username: str) -> dict:
         _ensure_user(conn, user_id, username)
         row = conn.execute(
             'SELECT correct_country, wrong_country, correct_capital, '
-            'wrong_capital, timeout_capital FROM users WHERE user_id = ?',
+            'wrong_capital, timeout_capital, streak, best_streak FROM users WHERE user_id = ?',
             (user_id,),
         ).fetchone()
     return {
         'correct_country': row[0], 'wrong_country': row[1],
         'correct_capital': row[2], 'wrong_capital': row[3],
-        'timeout_capital': row[4],
+        'timeout_capital': row[4], 'streak': row[5], 'best_streak': row[6],
     }
+
+
+def increment_streak(user_id: str, username: str) -> tuple[int, bool]:
+    """Increment streak, update best if needed. Returns (new_streak, is_new_best)."""
+    with sqlite3.connect(DB_PATH) as conn:
+        _ensure_user(conn, user_id, username)
+        row = conn.execute(
+            'SELECT streak, best_streak FROM users WHERE user_id = ?', (user_id,)
+        ).fetchone()
+        new_streak = (row[0] if row else 0) + 1
+        best = row[1] if row else 0
+        new_best = new_streak > best
+        conn.execute(
+            'UPDATE users SET streak = ?, best_streak = ? WHERE user_id = ?',
+            (new_streak, max(new_streak, best), user_id),
+        )
+    return new_streak, new_best
+
+
+def reset_streak(user_id: str, username: str) -> None:
+    with sqlite3.connect(DB_PATH) as conn:
+        _ensure_user(conn, user_id, username)
+        conn.execute('UPDATE users SET streak = 0 WHERE user_id = ?', (user_id,))
+
+
+def get_difficulty(user_id: str) -> str:
+    with sqlite3.connect(DB_PATH) as conn:
+        row = conn.execute(
+            'SELECT difficulty FROM users WHERE user_id = ?', (user_id,)
+        ).fetchone()
+    return row[0] if row and row[0] in ('easy', 'normal', 'hard') else 'normal'
+
+
+def set_difficulty(user_id: str, username: str, level: str) -> None:
+    if level not in ('easy', 'normal', 'hard'):
+        return
+    with sqlite3.connect(DB_PATH) as conn:
+        _ensure_user(conn, user_id, username)
+        conn.execute('UPDATE users SET difficulty = ? WHERE user_id = ?', (level, user_id))
+
+
+def get_continent_filter(user_id: str) -> str:
+    with sqlite3.connect(DB_PATH) as conn:
+        row = conn.execute(
+            'SELECT continent_filter FROM users WHERE user_id = ?', (user_id,)
+        ).fetchone()
+    return row[0] if row else 'all'
+
+
+def set_continent_filter(user_id: str, username: str, continent: str) -> None:
+    with sqlite3.connect(DB_PATH) as conn:
+        _ensure_user(conn, user_id, username)
+        conn.execute(
+            'UPDATE users SET continent_filter = ? WHERE user_id = ?', (continent, user_id)
+        )
+
+
+def toggle_daily_facts(user_id: str, username: str) -> bool:
+    with sqlite3.connect(DB_PATH) as conn:
+        _ensure_user(conn, user_id, username)
+        row = conn.execute('SELECT daily_facts FROM users WHERE user_id = ?', (user_id,)).fetchone()
+        new_state = 0 if (row and row[0]) else 1
+        conn.execute('UPDATE users SET daily_facts = ? WHERE user_id = ?', (new_state, user_id))
+    return bool(new_state)
+
+
+def get_daily_facts_subscribers() -> list:
+    with sqlite3.connect(DB_PATH) as conn:
+        return conn.execute(
+            'SELECT user_id, language FROM users WHERE daily_facts = 1'
+        ).fetchall()
 
 
 def get_top_users(limit: int = 10) -> list:

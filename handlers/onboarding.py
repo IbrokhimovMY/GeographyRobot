@@ -37,14 +37,13 @@ def _uname(update: Update) -> str:
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    # Always remove any existing reply keyboard and show language buttons.
-    # Returning users skip the name step (handled in lang_selected) but still
-    # pick their language so the keyboard is never shown before they do.
-    msg = await update.message.reply_text(
+    # ReplyKeyboardRemove and InlineKeyboardMarkup cannot share one message.
+    # First message dismisses the reply keyboard; second carries the inline buttons.
+    await update.message.reply_text(
         t('uz', 'onboard_choose_lang'),
         reply_markup=ReplyKeyboardRemove(),
     )
-    await msg.edit_reply_markup(reply_markup=ONBOARD_LANG_KB)
+    await update.message.reply_text('👇', reply_markup=ONBOARD_LANG_KB)
     return LANG
 
 

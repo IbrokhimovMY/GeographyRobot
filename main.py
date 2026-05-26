@@ -1,16 +1,26 @@
 import logging
+from datetime import time
 
 import telegram
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters
 
-from config import BOT_TOKEN
+from config import BOT_TOKEN, API_PORT
 from database import init_db
+from api_server import start_api_server
 from handlers.onboarding import build_onboarding_handler
 from handlers.game import get_country, get_capital, hint
 from handlers.guess import handle_guess, handle_webapp_data
 from handlers.misc import (
     stats, top, reset, help_command,
     language_command, language_callback,
+)
+from handlers.facts import daily_facts_command, send_daily_facts
+from handlers.flag import get_flag
+from handlers.info import info_command
+from handlers.challenge import get_challenge
+from handlers.settings import (
+    region_command, region_callback,
+    difficulty_command, difficulty_callback,
 )
 
 logging.basicConfig(
@@ -23,32 +33,48 @@ logging.basicConfig(
 )
 
 
+async def _post_init(application) -> None:
+    await start_api_server(port=API_PORT)
+
+
 def main() -> None:
     init_db()
     logging.getLogger(__name__).info("Bot starting…")
 
-    app = Application.builder().token(BOT_TOKEN).build()
+    app = Application.builder().token(BOT_TOKEN).post_init(_post_init).build()
 
-    # Onboarding must be first so ConversationHandler intercepts /start and
-    # the name-entry message before the generic MessageHandler sees them.
+    # Onboarding must be first
     app.add_handler(build_onboarding_handler())
 
-    # Regular commands
+    # Game commands
     app.add_handler(CommandHandler('language',   language_command))
     app.add_handler(CommandHandler('getcountry', get_country))
     app.add_handler(CommandHandler('getcapital', get_capital))
+    app.add_handler(CommandHandler('getflag',    get_flag))
+    app.add_handler(CommandHandler('challenge',  get_challenge))
     app.add_handler(CommandHandler('hint',       hint))
+    app.add_handler(CommandHandler('info',       info_command))
+
+    # Utility commands
     app.add_handler(CommandHandler('stats',      stats))
     app.add_handler(CommandHandler('top',        top))
     app.add_handler(CommandHandler('reset',      reset))
     app.add_handler(CommandHandler('help',       help_command))
+    app.add_handler(CommandHandler('region',     region_command))
+    app.add_handler(CommandHandler('difficulty', difficulty_command))
+    app.add_handler(CommandHandler('dailyfacts', daily_facts_command))
 
-    # Inline keyboard callback for /language (returning users)
-    app.add_handler(CallbackQueryHandler(language_callback, pattern=r'^lang_'))
+    # Inline keyboard callbacks
+    app.add_handler(CallbackQueryHandler(language_callback,  pattern=r'^lang_'))
+    app.add_handler(CallbackQueryHandler(region_callback,    pattern=r'^region_'))
+    app.add_handler(CallbackQueryHandler(difficulty_callback, pattern=r'^diff_'))
 
     # Free-text guesses and map WebApp
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_guess))
     app.add_handler(MessageHandler(filters.StatusUpdate.WEB_APP_DATA, handle_webapp_data))
+
+    # Scheduled jobs
+    app.job_queue.run_daily(send_daily_facts, time=time(hour=9, minute=0))
 
     app.run_polling(allowed_updates=telegram.Update.ALL_TYPES)
 

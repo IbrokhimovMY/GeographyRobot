@@ -6,19 +6,30 @@ import logging
 from telegram import Update
 from telegram.ext import ContextTypes
 
-from data import MAP_EN_TO_UZ, MAP_ANY_TO_UZ, COUNTRIES_SET
-from database import get_user_lang, get_display_name, record_result
+from data import MAP_EN_TO_UZ, MAP_ANY_TO_UZ, COUNTRIES_SET, COUNTRY_FLAGS
+from database import (
+    get_user_lang, get_display_name, record_result,
+    increment_streak, reset_streak,
+)
 from keyboards import default_kb, guess_kb, map_kb
-from state import active_country_games, active_capital_games, cancel_capital_job
+from state import (
+    active_country_games, active_capital_games, active_flag_games,
+    cancel_capital_job, cancel_country_job, cancel_flag_job,
+)
 from translations import t, get_country_name
 
 from handlers.game import get_country, get_capital, hint
 from handlers.misc import stats, top, reset, help_command
+from handlers.facts import daily_facts_command, _fetch_wiki_fact
+from handlers.flag import get_flag, used_flag_countries
+from handlers.info import info_command, info_lookup
+from handlers.challenge import get_challenge, mark_solved
 
 logger = logging.getLogger(__name__)
 
-# Button text from all languages → handler function
-_BUTTON_ROUTES = None   # built lazily to avoid circular dependency on STRINGS
+MAX_ATTEMPTS = 5
+
+_BUTTON_ROUTES = None
 
 
 def _build_routes():
@@ -26,14 +37,30 @@ def _build_routes():
     routes = {}
     for lang in ('uz', 'ru', 'en'):
         s = STRINGS[lang]
-        routes[s['btn_country'].lower()] = get_country
-        routes[s['btn_capital'].lower()] = get_capital
-        routes[s['btn_hint'].lower()]    = hint
-        routes[s['btn_top'].lower()]     = top
-        routes[s['btn_stats'].lower()]   = stats
-        routes[s['btn_reset'].lower()]   = reset
-        routes[s['btn_help'].lower()]    = help_command
+        routes[s['btn_country'].lower()]      = get_country
+        routes[s['btn_capital'].lower()]      = get_capital
+        routes[s['btn_hint'].lower()]         = hint
+        routes[s['btn_top'].lower()]          = top
+        routes[s['btn_stats'].lower()]        = stats
+        routes[s['btn_reset'].lower()]        = reset
+        routes[s['btn_help'].lower()]         = help_command
+        routes[s['btn_daily_facts'].lower()]  = daily_facts_command
+        routes[s['btn_flag'].lower()]         = get_flag
+        routes[s['btn_challenge'].lower()]    = get_challenge
+        routes[s['btn_info'].lower()]         = info_command
+        routes[s['btn_region'].lower()]       = _region_btn
+        routes[s['btn_difficulty'].lower()]   = _difficulty_btn
     return routes
+
+
+async def _region_btn(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    from handlers.settings import region_command
+    await region_command(update, context)
+
+
+async def _difficulty_btn(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    from handlers.settings import difficulty_command
+    await difficulty_command(update, context)
 
 
 def _uid(update: Update) -> str:
@@ -62,8 +89,35 @@ def _is_group(update: Update) -> bool:
 
 
 def _normalize(text: str) -> str:
-    """Return the UZ internal country name matching any-language input, or the original text."""
     return MAP_ANY_TO_UZ.get(text.strip().lower(), text.strip())
+
+
+def _streak_suffix(user_id: str, username: str, lang: str) -> str:
+    streak, is_best = increment_streak(user_id, username)
+    if streak < 2:
+        return ''
+    if is_best and streak > 2:
+        return t(lang, 'streak_best', n=streak)
+    return t(lang, 'streak_new', n=streak)
+
+
+async def _send_wiki_fact_bg(context: ContextTypes.DEFAULT_TYPE, chat_id: int,
+                              country_uz: str, lang: str) -> None:
+    fact = await _fetch_wiki_fact(country_uz, lang)
+    if fact:
+        country_display = html.escape(get_country_name(country_uz, lang))
+        await context.bot.send_message(
+            chat_id=chat_id,
+            text=f"📖 <b>{country_display}</b>\n\n{html.escape(fact)}",
+            parse_mode='HTML',
+        )
+
+
+def _schedule_fact(context: ContextTypes.DEFAULT_TYPE, chat_id: int,
+                   country_uz: str, lang: str) -> None:
+    context.application.create_task(
+        _send_wiki_fact_bg(context, chat_id, country_uz, lang)
+    )
 
 
 async def handle_guess(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -75,7 +129,11 @@ async def handle_guess(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     if len(text) > 100:
         return
 
-    # Route keyboard button presses
+    # Info mode: user is answering the info prompt
+    if context.user_data.get('awaiting_info'):
+        await info_lookup(update, context)
+        return
+
     route = _BUTTON_ROUTES.get(text.lower())
     if route:
         await route(update, context)
@@ -86,28 +144,102 @@ async def handle_guess(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     username = _uname(update)
     lang = _lang(update)
     in_group = _is_group(update)
-
     guess_uz = _normalize(text)
+
+    # --- Flag game ---
+    if chat_id in active_flag_games:
+        game = active_flag_games[chat_id]
+        correct_uz = game['country']
+        if guess_uz.lower() == correct_uz.lower():
+            cancel_flag_job(chat_id)
+            del active_flag_games[chat_id]
+            name = _player_name(update)
+            flag = COUNTRY_FLAGS.get(correct_uz, '🏴')
+            correct_display = get_country_name(correct_uz, lang)
+            record_result(user_id, username, 'country', 'correct')
+            streak_sfx = _streak_suffix(user_id, username, lang)
+            if in_group:
+                msg = t(lang, 'correct_flag_group',
+                        name=html.escape(name),
+                        country=html.escape(correct_display), flag=flag) + streak_sfx
+            else:
+                msg = t(lang, 'correct_flag_private',
+                        country=html.escape(correct_display), flag=flag) + streak_sfx
+            await update.message.reply_text(msg, parse_mode='HTML', reply_markup=default_kb(lang))
+            _schedule_fact(context, update.effective_chat.id, correct_uz, lang)
+        else:
+            game['attempts'] += 1
+            if game['attempts'] >= MAX_ATTEMPTS:
+                cancel_flag_job(chat_id)
+                del active_flag_games[chat_id]
+                record_result(user_id, username, 'country', 'wrong')
+                reset_streak(user_id, username)
+                flag = COUNTRY_FLAGS.get(correct_uz, '🏴')
+                correct_display = get_country_name(correct_uz, lang)
+                await update.message.reply_text(
+                    t(lang, 'game_failed', country=html.escape(correct_display)),
+                    parse_mode='HTML', reply_markup=default_kb(lang),
+                )
+            elif not in_group:
+                reset_streak(user_id, username)
+                remaining = MAX_ATTEMPTS - game['attempts']
+                await update.message.reply_text(
+                    f"{t(lang, 'wrong_flag')} ({remaining}🎯)",
+                    reply_markup=guess_kb(lang),
+                )
+        return
 
     # --- Country game ---
     if chat_id in active_country_games:
-        correct_uz = active_country_games[chat_id]['country']
+        game = active_country_games[chat_id]
+        correct_uz = game['country']
+        is_challenge = game.get('challenge', False)
         if guess_uz.lower() == correct_uz.lower():
-            record_result(user_id, username, 'country', 'correct')
+            cancel_country_job(chat_id)
             del active_country_games[chat_id]
             name = _player_name(update)
             correct_display = get_country_name(correct_uz, lang)
-            if in_group:
+            record_result(user_id, username, 'country', 'correct')
+            streak_sfx = _streak_suffix(user_id, username, lang)
+            if is_challenge:
+                mark_solved(user_id)
+                if in_group:
+                    msg = t(lang, 'challenge_correct',
+                            name=html.escape(name),
+                            country=html.escape(correct_display)) + streak_sfx
+                else:
+                    msg = t(lang, 'challenge_correct_private',
+                            country=html.escape(correct_display)) + streak_sfx
+            elif in_group:
                 msg = t(lang, 'correct_country_group',
-                        name=html.escape(name), country=html.escape(correct_display))
+                        name=html.escape(name),
+                        country=html.escape(correct_display)) + streak_sfx
             else:
                 msg = t(lang, 'correct_country_private',
-                        name=html.escape(name), country=html.escape(correct_display))
+                        name=html.escape(name),
+                        country=html.escape(correct_display)) + streak_sfx
             await update.message.reply_text(msg, parse_mode='HTML', reply_markup=default_kb(lang))
+            _schedule_fact(context, update.effective_chat.id, correct_uz, lang)
             logger.info("Country correct: chat=%s user=%s — %s", chat_id, user_id, correct_uz)
         else:
-            if not in_group:
-                await update.message.reply_text(t(lang, 'wrong_country'), reply_markup=guess_kb(lang))
+            game['attempts'] += 1
+            if game['attempts'] >= MAX_ATTEMPTS:
+                cancel_country_job(chat_id)
+                del active_country_games[chat_id]
+                record_result(user_id, username, 'country', 'wrong')
+                reset_streak(user_id, username)
+                correct_display = get_country_name(correct_uz, lang)
+                await update.message.reply_text(
+                    t(lang, 'game_failed', country=html.escape(correct_display)),
+                    parse_mode='HTML', reply_markup=default_kb(lang),
+                )
+            elif not in_group:
+                reset_streak(user_id, username)
+                remaining = MAX_ATTEMPTS - game['attempts']
+                await update.message.reply_text(
+                    f"{t(lang, 'wrong_country')} ({remaining}🎯)",
+                    reply_markup=map_kb(lang),
+                )
         return
 
     # --- Capital game ---
@@ -119,17 +251,22 @@ async def handle_guess(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             del active_capital_games[chat_id]
             name = _player_name(update)
             correct_display = get_country_name(correct_uz, lang)
+            streak_sfx = _streak_suffix(user_id, username, lang)
             if in_group:
                 msg = t(lang, 'correct_capital_group',
-                        name=html.escape(name), country=html.escape(correct_display))
+                        name=html.escape(name),
+                        country=html.escape(correct_display)) + streak_sfx
             else:
                 msg = t(lang, 'correct_capital_private',
-                        name=html.escape(name), country=html.escape(correct_display))
+                        name=html.escape(name),
+                        country=html.escape(correct_display)) + streak_sfx
             await update.message.reply_text(msg, parse_mode='HTML', reply_markup=default_kb(lang))
+            _schedule_fact(context, update.effective_chat.id, correct_uz, lang)
             logger.info("Capital correct: chat=%s user=%s — %s", chat_id, user_id, correct_uz)
         else:
             record_result(user_id, username, 'capital', 'wrong')
             if not in_group:
+                reset_streak(user_id, username)
                 await update.message.reply_text(t(lang, 'wrong_capital'), reply_markup=guess_kb(lang))
         return
 
@@ -159,7 +296,8 @@ async def handle_webapp_data(update: Update, context: ContextTypes.DEFAULT_TYPE)
         )
         return
 
-    correct_uz = active_country_games[chat_id]['country']
+    game = active_country_games[chat_id]
+    correct_uz = game['country']
     name = _player_name(update)
     in_group = _is_group(update)
 
@@ -170,23 +308,43 @@ async def handle_webapp_data(update: Update, context: ContextTypes.DEFAULT_TYPE)
     )
 
     if selected_uz.lower() == correct_uz.lower():
+        cancel_country_job(chat_id)
+        is_challenge = game.get('challenge', False)
         record_result(user_id, username, 'country', 'correct')
         del active_country_games[chat_id]
+        streak_sfx = _streak_suffix(user_id, username, lang)
+        if is_challenge:
+            mark_solved(user_id)
         if in_group:
             msg = t(lang, 'map_correct_group',
-                    name=html.escape(name), country=html.escape(correct_display))
+                    name=html.escape(name), country=html.escape(correct_display)) + streak_sfx
         else:
             msg = t(lang, 'map_correct_private',
-                    name=html.escape(name), country=html.escape(correct_display))
+                    country=html.escape(correct_display)) + streak_sfx
         await context.bot.send_message(
             chat_id=int(chat_id), text=msg, parse_mode='HTML', reply_markup=default_kb(lang)
         )
+        _schedule_fact(context, int(chat_id), correct_uz, lang)
         logger.info("Map correct: chat=%s user=%s — %s", chat_id, user_id, correct_uz)
     else:
-        record_result(user_id, username, 'country', 'wrong')
-        await context.bot.send_message(
-            chat_id=int(chat_id),
-            text=t(lang, 'map_wrong', selected=html.escape(selected_display)),
-            parse_mode='HTML',
-            reply_markup=map_kb(lang),
-        )
+        game['attempts'] = game.get('attempts', 0) + 1
+        if game['attempts'] >= MAX_ATTEMPTS:
+            cancel_country_job(chat_id)
+            del active_country_games[chat_id]
+            record_result(user_id, username, 'country', 'wrong')
+            reset_streak(user_id, username)
+            await context.bot.send_message(
+                chat_id=int(chat_id),
+                text=t(lang, 'game_failed', country=html.escape(correct_display)),
+                parse_mode='HTML', reply_markup=default_kb(lang),
+            )
+        else:
+            reset_streak(user_id, username)
+            record_result(user_id, username, 'country', 'wrong')
+            remaining = MAX_ATTEMPTS - game['attempts']
+            await context.bot.send_message(
+                chat_id=int(chat_id),
+                text=f"{t(lang, 'map_wrong', selected=html.escape(selected_display))} ({remaining}🎯)",
+                parse_mode='HTML',
+                reply_markup=map_kb(lang),
+            )
