@@ -1,0 +1,22 @@
+[Unit]
+Description=Geography Quiz Telegram Bot
+After=network.target
+Wants=network.target
+
+[Service]
+Type=simple
+User=geographybot
+WorkingDirectory=/opt/geographybot
+EnvironmentFile=/opt/geographybot/.env
+ExecStart=/opt/geographybot/.venv/bin/python main.py
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+# Resource limits
+MemoryMax=256M
+CPUQuota=80%
+
+[Install]
+WantedBy=multi-user.target

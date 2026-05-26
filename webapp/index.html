@@ -1,0 +1,871 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Geography Quiz</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script src="data.js"></script>
+<style>
+:root {
+  --bg:       var(--tg-theme-bg-color,#17212b);
+  --bg2:      var(--tg-theme-secondary-bg-color,#232e3c);
+  --text:     var(--tg-theme-text-color,#f5f5f5);
+  --hint:     var(--tg-theme-hint-color,#708499);
+  --btn:      var(--tg-theme-button-color,#5288c1);
+  --btn-text: var(--tg-theme-button-text-color,#fff);
+  --link:     var(--tg-theme-link-color,#62acde);
+  --green:#4caf50; --red:#f44336; --orange:#ff9800;
+  --r:12px; --pad:16px;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:15px;min-height:100vh}
+button{cursor:pointer;border:none;outline:none;font-family:inherit}
+
+/* ── screens ─────────────────────────────────────────────── */
+.screen{display:none;flex-direction:column;min-height:100vh;padding:var(--pad)}
+.screen.active{display:flex}
+
+/* ── cards ───────────────────────────────────────────────── */
+.card{background:var(--bg2);border-radius:var(--r);padding:14px 16px;margin-bottom:12px}
+
+/* ── buttons ─────────────────────────────────────────────── */
+.btn{display:block;width:100%;padding:14px;border-radius:var(--r);background:var(--btn);color:var(--btn-text);font-size:15px;font-weight:600;text-align:center;transition:.15s}
+.btn:active{opacity:.8}
+.btn.secondary{background:var(--bg2);color:var(--text)}
+.btn.danger{background:rgba(244,67,54,.15);color:var(--red)}
+.btn.small{padding:9px 14px;font-size:13px;font-weight:500}
+.btn-row{display:grid;gap:8px}
+.btn-row.col2{grid-template-columns:1fr 1fr}
+.btn-row.col3{grid-template-columns:1fr 1fr 1fr}
+
+/* ── home ─────────────────────────────────────────────────── */
+.home-header{text-align:center;padding:20px 0 16px}
+.home-header h1{font-size:22px;font-weight:700}
+.home-header p{color:var(--hint);font-size:13px;margin-top:4px}
+.game-btn{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:16px 8px;background:var(--bg2);border-radius:var(--r);color:var(--text);font-size:13px;font-weight:600;transition:.15s}
+.game-btn:active{opacity:.8}
+.game-btn .icon{font-size:28px}
+.game-btn.featured{background:var(--btn);color:var(--btn-text)}
+.games-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+.lang-row{display:flex;gap:8px;justify-content:center;margin-bottom:16px}
+.lang-btn{padding:6px 16px;border-radius:20px;background:var(--bg2);color:var(--hint);font-size:13px;font-weight:600;transition:.15s}
+.lang-btn.active{background:var(--btn);color:var(--btn-text)}
+.setting-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0}
+.setting-row + .setting-row{border-top:1px solid rgba(255,255,255,.06)}
+.setting-label{font-size:14px;color:var(--hint)}
+.setting-value{font-size:14px;font-weight:600;color:var(--link);cursor:pointer}
+.streak-bar{display:flex;justify-content:space-around;padding:4px 0}
+.streak-item{text-align:center}
+.streak-num{font-size:22px;font-weight:700}
+.streak-lbl{font-size:11px;color:var(--hint);margin-top:2px}
+
+/* ── game screen ──────────────────────────────────────────── */
+.game-header{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+.back-btn{background:var(--bg2);border-radius:50%;width:36px;height:36px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+.game-title{font-size:16px;font-weight:700}
+.game-subtitle{font-size:12px;color:var(--hint);margin-top:1px}
+
+/* timer */
+.timer-wrap{margin-bottom:14px}
+.timer-bar-bg{height:6px;background:rgba(255,255,255,.12);border-radius:3px;overflow:hidden}
+.timer-bar{height:100%;border-radius:3px;background:var(--btn);transition:width .5s linear,background .5s}
+.timer-bar.warn{background:var(--orange)}
+.timer-bar.danger{background:var(--red)}
+.timer-text{font-size:12px;color:var(--hint);text-align:right;margin-top:4px}
+
+/* question */
+.question-card{background:var(--bg2);border-radius:var(--r);padding:20px 16px;margin-bottom:14px;text-align:center;min-height:120px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px}
+.flag-display{font-size:80px;line-height:1;filter:drop-shadow(0 4px 8px rgba(0,0,0,.3))}
+.capital-display{font-size:28px;font-weight:700}
+.hint-text{font-size:14px;line-height:1.55;color:var(--text);text-align:left;width:100%}
+.hint-label{font-size:11px;color:var(--hint);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;text-align:left;width:100%}
+.hint-source{font-size:11px;color:var(--link);margin-top:6px;text-align:left;width:100%}
+
+/* input */
+.input-wrap{position:relative;margin-bottom:10px}
+.answer-input{width:100%;padding:13px 50px 13px 14px;border-radius:var(--r);background:var(--bg2);border:2px solid transparent;color:var(--text);font-size:15px;outline:none;transition:.2s}
+.answer-input:focus{border-color:var(--btn)}
+.answer-input.correct{border-color:var(--green)}
+.answer-input.wrong{border-color:var(--red)}
+.submit-btn{position:absolute;right:8px;top:50%;transform:translateY(-50%);background:var(--btn);color:var(--btn-text);border-radius:8px;padding:6px 10px;font-size:18px;line-height:1}
+
+/* attempts */
+.attempts{display:flex;justify-content:center;gap:8px;margin-bottom:14px}
+.attempt-dot{width:14px;height:14px;border-radius:50%;background:rgba(255,255,255,.15);transition:.2s}
+.attempt-dot.used{background:var(--red)}
+.attempt-dot.remaining{background:rgba(255,255,255,.3)}
+
+/* hints section */
+.hints-section{margin-bottom:14px}
+.hint-item{background:var(--bg2);border-radius:8px;padding:10px 12px;margin-bottom:6px;font-size:13px;line-height:1.5;animation:fadeIn .3s}
+.hint-item .hi-label{font-size:11px;color:var(--link);font-weight:600;margin-bottom:3px}
+@keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+
+/* ── result overlay ──────────────────────────────────────── */
+.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:100;align-items:flex-end;padding:var(--pad)}
+.overlay.active{display:flex}
+.result-card{background:var(--bg);border-radius:var(--r) var(--r) 0 0;padding:24px var(--pad) calc(var(--pad) + env(safe-area-inset-bottom));width:100%;animation:slideUp .25s}
+@keyframes slideUp{from{transform:translateY(60px);opacity:0}to{transform:none;opacity:1}}
+.result-icon{font-size:52px;text-align:center;margin-bottom:12px}
+.result-title{font-size:20px;font-weight:700;text-align:center;margin-bottom:6px}
+.result-country{text-align:center;font-size:30px;margin-bottom:4px}
+.result-sub{text-align:center;font-size:13px;color:var(--hint);margin-bottom:16px}
+.result-fact{font-size:13px;line-height:1.6;color:var(--text);background:var(--bg2);border-radius:8px;padding:12px;margin-bottom:16px;display:none}
+
+/* ── picker overlay ──────────────────────────────────────── */
+.picker{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:100;align-items:flex-end;padding:var(--pad)}
+.picker.active{display:flex}
+.picker-card{background:var(--bg);border-radius:var(--r) var(--r) 0 0;padding:20px var(--pad) calc(var(--pad) + env(safe-area-inset-bottom));width:100%;animation:slideUp .25s}
+.picker-title{font-size:16px;font-weight:700;margin-bottom:14px}
+.picker-options{display:flex;flex-direction:column;gap:8px}
+.picker-option{padding:12px 14px;border-radius:8px;background:var(--bg2);font-size:14px;text-align:left;color:var(--text);display:flex;justify-content:space-between;align-items:center}
+.picker-option.active-opt{background:rgba(82,136,193,.2);color:var(--btn)}
+.picker-option .check{font-size:16px}
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════ HOME ═══════════════════════════ -->
+<div id="screen-home" class="screen active">
+  <div class="home-header">
+    <h1>🌍 Geography Quiz</h1>
+    <p id="home-sub">Test your world knowledge</p>
+  </div>
+
+  <div class="lang-row">
+    <button class="lang-btn" data-lang="uz" onclick="setLang('uz')">🇺🇿 UZ</button>
+    <button class="lang-btn" data-lang="ru" onclick="setLang('ru')">🇷🇺 RU</button>
+    <button class="lang-btn active" data-lang="en" onclick="setLang('en')">🇬🇧 EN</button>
+  </div>
+
+  <div class="games-grid">
+    <button class="game-btn featured" onclick="startGame('country')">
+      <span class="icon">🌍</span>
+      <span id="btn-country">Find Country</span>
+    </button>
+    <button class="game-btn" onclick="startGame('capital')">
+      <span class="icon">🏙</span>
+      <span id="btn-capital">Find Capital</span>
+    </button>
+    <button class="game-btn" onclick="startGame('flag')">
+      <span class="icon">🚩</span>
+      <span id="btn-flag">Flag Game</span>
+    </button>
+    <button class="game-btn" onclick="startGame('challenge')">
+      <span class="icon">🎯</span>
+      <span id="btn-challenge">Challenge</span>
+    </button>
+  </div>
+
+  <div class="card">
+    <div class="setting-row">
+      <span class="setting-label" id="lbl-region">Region</span>
+      <span class="setting-value" id="val-region" onclick="openPicker('region')">All ›</span>
+    </div>
+    <div class="setting-row">
+      <span class="setting-label" id="lbl-difficulty">Difficulty</span>
+      <span class="setting-value" id="val-difficulty" onclick="openPicker('difficulty')">Normal ›</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="streak-bar">
+      <div class="streak-item">
+        <div class="streak-num" id="stat-correct">0</div>
+        <div class="streak-lbl" id="lbl-correct">Correct</div>
+      </div>
+      <div class="streak-item">
+        <div class="streak-num" id="stat-streak">🔥0</div>
+        <div class="streak-lbl" id="lbl-streak">Streak</div>
+      </div>
+      <div class="streak-item">
+        <div class="streak-num" id="stat-best">0</div>
+        <div class="streak-lbl" id="lbl-best">Best</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════ GAME ═══════════════════════════ -->
+<div id="screen-game" class="screen">
+  <div class="game-header">
+    <button class="back-btn" onclick="goHome()">←</button>
+    <div>
+      <div class="game-title" id="game-title">Find Country</div>
+      <div class="game-subtitle" id="game-progress">1/195</div>
+    </div>
+  </div>
+
+  <div class="timer-wrap">
+    <div class="timer-bar-bg"><div class="timer-bar" id="timer-bar"></div></div>
+    <div class="timer-text" id="timer-text">1:30</div>
+  </div>
+
+  <div class="question-card" id="question-card">
+    <div class="flag-display" id="q-flag" style="display:none"></div>
+    <div class="capital-display" id="q-capital" style="display:none"></div>
+    <div class="hint-label" id="q-hint-label" style="display:none"></div>
+    <div class="hint-text" id="q-hint" style="display:none"></div>
+  </div>
+
+  <div class="input-wrap">
+    <input id="answer-input" class="answer-input" type="text"
+           autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false"
+           placeholder="…"
+           onkeydown="if(event.key==='Enter')submitAnswer()">
+    <button class="submit-btn" onclick="submitAnswer()">→</button>
+  </div>
+
+  <div class="attempts" id="attempts-row"></div>
+
+  <div class="hints-section" id="hints-section"></div>
+
+  <div class="btn-row col2">
+    <button class="btn secondary small" id="hint-btn" onclick="showNextHint()">💡 Hint</button>
+    <button class="btn danger small" onclick="giveUp()">✖ Give up</button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════ RESULT ════════════════════════ -->
+<div class="overlay" id="result-overlay">
+  <div class="result-card">
+    <div class="result-icon" id="res-icon">✅</div>
+    <div class="result-title" id="res-title">Correct!</div>
+    <div class="result-country" id="res-country"></div>
+    <div class="result-sub" id="res-sub"></div>
+    <div class="result-fact" id="res-fact"></div>
+    <div class="btn-row col2">
+      <button class="btn secondary" onclick="closeResult(false)">🏠 Menu</button>
+      <button class="btn" id="next-btn" onclick="closeResult(true)">▶ Next</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════ PICKERS ═══════════════════════ -->
+<div class="picker" id="picker-region">
+  <div class="picker-card">
+    <div class="picker-title" id="picker-region-title">Select Region</div>
+    <div class="picker-options" id="picker-region-opts"></div>
+  </div>
+</div>
+
+<div class="picker" id="picker-difficulty">
+  <div class="picker-card">
+    <div class="picker-title" id="picker-diff-title">Select Difficulty</div>
+    <div class="picker-options" id="picker-diff-opts"></div>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════════════════
+//  I18N
+// ══════════════════════════════════════════════════════════
+const I18N = {
+  en: {
+    home_sub:'Test your world knowledge',
+    btn_country:'Find Country', btn_capital:'Find Capital',
+    btn_flag:'Flag Game', btn_challenge:'Daily Challenge',
+    lbl_region:'Region', lbl_difficulty:'Difficulty',
+    lbl_correct:'Correct', lbl_streak:'Streak', lbl_best:'Best',
+    game_country:'Find the Country', game_capital:'Find the Capital',
+    game_flag:'Identify the Flag', game_challenge:'Daily Challenge',
+    hint_lbl:'Hint', hint_wiki:'Wikipedia',
+    hint_continent:'Continent', hint_flag_hint:'Flag',
+    hint_capital_hint:'Capital', hint_exhausted:'No more hints!',
+    input_placeholder:'Type country name…',
+    correct:'Correct!', wrong:'Wrong!', timeout:'Time\'s up!',
+    failed:'Better luck next time!',
+    res_capital:'Capital: ', res_continent:'Continent: ',
+    next_game:'Next', menu:'Menu',
+    give_up:'Give up', loading_hint:'Loading…',
+    regions:{all:'🌐 All',africa:'🌍 Africa',asia:'🌏 Asia',europe:'🌍 Europe',
+             north_america:'🌎 North America',south_america:'🌎 South America',oceania:'🌊 Oceania'},
+    diffs:{easy:'🟢 Easy (120s + flag hint)',normal:'🟡 Normal (90s)',hard:'🔴 Hard (60s)'},
+    diff_labels:{easy:'Easy',normal:'Normal',hard:'Hard'},
+    region_labels:{all:'All',africa:'Africa',asia:'Asia',europe:'Europe',
+                   north_america:'N. America',south_america:'S. America',oceania:'Oceania'},
+    challenge_done:'You already completed today\'s challenge!',
+    picker_region:'Select Region', picker_diff:'Select Difficulty',
+    streak_msg:' in a row! 🔥', best_msg:'New record: ',
+  },
+  uz: {
+    home_sub:'Dunyo geografiyasini sinab ko\'ring',
+    btn_country:'Davlat topish', btn_capital:'Poytaxt topish',
+    btn_flag:'Bayroq topish', btn_challenge:'Kunlik topshiriq',
+    lbl_region:'Hudud', lbl_difficulty:'Daraja',
+    lbl_correct:'To\'g\'ri', lbl_streak:'Ketma-ket', lbl_best:'Rekord',
+    game_country:'Davlatni toping', game_capital:'Poytaxtni toping',
+    game_flag:'Bayroqni aniqlang', game_challenge:'Kunlik topshiriq',
+    hint_lbl:'Ishora', hint_wiki:'Vikipediya',
+    hint_continent:'Qit\'a', hint_flag_hint:'Bayroq',
+    hint_capital_hint:'Poytaxt', hint_exhausted:'Ishoralar tugadi!',
+    input_placeholder:'Davlat nomini yozing…',
+    correct:'To\'g\'ri!', wrong:'Noto\'g\'ri!', timeout:'Vaqt tugadi!',
+    failed:'Yana urinib ko\'ring!',
+    res_capital:'Poytaxt: ', res_continent:'Qit\'a: ',
+    next_game:'Keyingi', menu:'Menyu',
+    give_up:'Topmayman', loading_hint:'Yuklanmoqda…',
+    regions:{all:'🌐 Hammasi',africa:'🌍 Afrika',asia:'🌏 Osiyo',europe:'🌍 Yevropa',
+             north_america:'🌎 Shimoliy Amerika',south_america:'🌎 Janubiy Amerika',oceania:'🌊 Okeaniya'},
+    diffs:{easy:'🟢 Oson (120s + bayroq)',normal:'🟡 O\'rta (90s)',hard:'🔴 Qiyin (60s)'},
+    diff_labels:{easy:'Oson',normal:'O\'rta',hard:'Qiyin'},
+    region_labels:{all:'Hammasi',africa:'Afrika',asia:'Osiyo',europe:'Yevropa',
+                   north_america:'Shim. Amerika',south_america:'Jan. Amerika',oceania:'Okeaniya'},
+    challenge_done:'Bugungi topshiriqni allaqachon bajardingiz!',
+    picker_region:'Hududni tanlang', picker_diff:'Darajani tanlang',
+    streak_msg:' ta ketma-ket! 🔥', best_msg:'Yangi rekord: ',
+  },
+  ru: {
+    home_sub:'Проверьте знания географии',
+    btn_country:'Найти страну', btn_capital:'Найти столицу',
+    btn_flag:'Игра флагов', btn_challenge:'Ежедневное задание',
+    lbl_region:'Регион', lbl_difficulty:'Сложность',
+    lbl_correct:'Верно', lbl_streak:'Серия', lbl_best:'Рекорд',
+    game_country:'Найдите страну', game_capital:'Найдите столицу',
+    game_flag:'Угадайте флаг', game_challenge:'Ежедневное задание',
+    hint_lbl:'Подсказка', hint_wiki:'Википедия',
+    hint_continent:'Континент', hint_flag_hint:'Флаг',
+    hint_capital_hint:'Столица', hint_exhausted:'Подсказки закончились!',
+    input_placeholder:'Введите название страны…',
+    correct:'Правильно!', wrong:'Неверно!', timeout:'Время вышло!',
+    failed:'Попробуйте ещё раз!',
+    res_capital:'Столица: ', res_continent:'Континент: ',
+    next_game:'Следующий', menu:'Меню',
+    give_up:'Сдаться', loading_hint:'Загрузка…',
+    regions:{all:'🌐 Все',africa:'🌍 Африка',asia:'🌏 Азия',europe:'🌍 Европа',
+             north_america:'🌎 Северная Америка',south_america:'🌎 Южная Америка',oceania:'🌊 Океания'},
+    diffs:{easy:'🟢 Лёгкий (120с + флаг)',normal:'🟡 Средний (90с)',hard:'🔴 Сложный (60с)'},
+    diff_labels:{easy:'Лёгкий',normal:'Средний',hard:'Сложный'},
+    region_labels:{all:'Все',africa:'Африка',asia:'Азия',europe:'Европа',
+                   north_america:'С. Америка',south_america:'Ю. Америка',oceania:'Океания'},
+    challenge_done:'Вы уже выполнили сегодняшнее задание!',
+    picker_region:'Выберите регион', picker_diff:'Выберите сложность',
+    streak_msg:' подряд! 🔥', best_msg:'Новый рекорд: ',
+  },
+};
+
+const CONTINENT_LABELS = {
+  africa:'Africa/Afrika/Африка', asia:'Asia/Osiyo/Азия',
+  europe:'Europe/Yevropa/Европа', north_america:'N.America/Shim.Amerika/С.Америка',
+  south_america:'S.America/Jan.Amerika/Ю.Америка', oceania:'Oceania/Okeaniya/Океания',
+};
+
+// ══════════════════════════════════════════════════════════
+//  APP STATE
+// ══════════════════════════════════════════════════════════
+const tg = window.Telegram?.WebApp;
+if (tg) { tg.ready(); tg.expand(); }
+
+const state = {
+  lang: detectLang(),
+  region: 'all',
+  difficulty: 'normal',
+  usedCountries: new Set(),
+  session: { correct: 0, streak: 0, best: 0 },
+  game: null,
+  // {type, country, attempts, hints:[], hintsFetched, timerEnd, timerMax, timerInterval}
+  challengeDone: false,
+  challengeCountry: getDailyChallenge(),
+};
+
+function detectLang() {
+  const l = tg?.initDataUnsafe?.user?.language_code || navigator.language || 'en';
+  if (l.startsWith('uz')) return 'uz';
+  if (l.startsWith('ru')) return 'ru';
+  return 'en';
+}
+
+function T(key) { return (I18N[state.lang] || I18N.en)[key] || key; }
+
+function getDailyChallenge() {
+  const today = new Date();
+  const seed = today.getFullYear() * 10000 + (today.getMonth()+1) * 100 + today.getDate();
+  // Simple LCG seeded by date
+  let r = seed;
+  r = (r * 1664525 + 1013904223) & 0xffffffff;
+  r = ((r >>> 0) % GAME_DATA.length);
+  return GAME_DATA[r];
+}
+
+const TIMERS = {
+  country: {easy:120, normal:90, hard:60},
+  capital: {easy:90,  normal:60, hard:30},
+  flag:    {easy:90,  normal:60, hard:40},
+  challenge:{easy:120, normal:90, hard:60},
+};
+const MAX_ATTEMPTS = 5;
+
+// ══════════════════════════════════════════════════════════
+//  LANG & SETTINGS
+// ══════════════════════════════════════════════════════════
+function setLang(l) {
+  state.lang = l;
+  document.querySelectorAll('.lang-btn').forEach(b => b.classList.toggle('active', b.dataset.lang===l));
+  renderHome();
+}
+
+function renderHome() {
+  const l = state.lang, s = I18N[l];
+  document.getElementById('home-sub').textContent = s.home_sub;
+  document.getElementById('btn-country').textContent = s.btn_country;
+  document.getElementById('btn-capital').textContent = s.btn_capital;
+  document.getElementById('btn-flag').textContent    = s.btn_flag;
+  document.getElementById('btn-challenge').textContent = s.btn_challenge;
+  document.getElementById('lbl-region').textContent  = s.lbl_region;
+  document.getElementById('lbl-difficulty').textContent = s.lbl_difficulty;
+  document.getElementById('lbl-correct').textContent = s.lbl_correct;
+  document.getElementById('lbl-streak').textContent  = s.lbl_streak;
+  document.getElementById('lbl-best').textContent    = s.lbl_best;
+  document.getElementById('val-region').textContent  = s.region_labels[state.region] + ' ›';
+  document.getElementById('val-difficulty').textContent = s.diff_labels[state.difficulty] + ' ›';
+  updateSessionStats();
+}
+
+function updateSessionStats() {
+  document.getElementById('stat-correct').textContent = state.session.correct;
+  document.getElementById('stat-streak').textContent  = '🔥' + state.session.streak;
+  document.getElementById('stat-best').textContent    = state.session.best;
+}
+
+// ══════════════════════════════════════════════════════════
+//  PICKERS
+// ══════════════════════════════════════════════════════════
+function openPicker(type) {
+  const s = I18N[state.lang];
+  if (type === 'region') {
+    document.getElementById('picker-region-title').textContent = s.picker_region;
+    const opts = document.getElementById('picker-region-opts');
+    opts.innerHTML = '';
+    const regions = ['all','africa','asia','europe','north_america','south_america','oceania'];
+    regions.forEach(r => {
+      const btn = document.createElement('button');
+      btn.className = 'picker-option' + (state.region===r ? ' active-opt' : '');
+      btn.innerHTML = s.regions[r] + (state.region===r ? '<span class="check">✓</span>' : '');
+      btn.onclick = () => { state.region = r; closePickers(); renderHome(); };
+      opts.appendChild(btn);
+    });
+    document.getElementById('picker-region').classList.add('active');
+  } else {
+    document.getElementById('picker-diff-title').textContent = s.picker_diff;
+    const opts = document.getElementById('picker-diff-opts');
+    opts.innerHTML = '';
+    ['easy','normal','hard'].forEach(d => {
+      const btn = document.createElement('button');
+      btn.className = 'picker-option' + (state.difficulty===d ? ' active-opt' : '');
+      btn.innerHTML = s.diffs[d] + (state.difficulty===d ? '<span class="check">✓</span>' : '');
+      btn.onclick = () => { state.difficulty = d; closePickers(); renderHome(); };
+      opts.appendChild(btn);
+    });
+    document.getElementById('picker-difficulty').classList.add('active');
+  }
+}
+
+function closePickers() {
+  document.querySelectorAll('.picker').forEach(p => p.classList.remove('active'));
+}
+document.querySelectorAll('.picker').forEach(p =>
+  p.addEventListener('click', e => { if (e.target === p) closePickers(); }));
+document.getElementById('result-overlay').addEventListener('click', e => {
+  if (e.target.id === 'result-overlay') {} // don't close on backdrop
+});
+
+// ══════════════════════════════════════════════════════════
+//  GAME START
+// ══════════════════════════════════════════════════════════
+function getPool() {
+  return state.region === 'all'
+    ? GAME_DATA
+    : GAME_DATA.filter(c => c.continent === state.region);
+}
+
+function pickCountry(type) {
+  if (type === 'challenge') return state.challengeCountry;
+  const pool = getPool();
+  const available = pool.filter(c => !state.usedCountries.has(c.key));
+  if (!available.length) { state.usedCountries.clear(); return pool[Math.floor(Math.random()*pool.length)]; }
+  return available[Math.floor(Math.random()*available.length)];
+}
+
+function startGame(type) {
+  if (type === 'challenge' && state.challengeDone) {
+    showToast(T('challenge_done')); return;
+  }
+  const country = pickCountry(type);
+  if (!country) { showToast('No countries available!'); return; }
+  state.usedCountries.add(country.key);
+
+  const duration = TIMERS[type][state.difficulty];
+  state.game = {
+    type, country, attempts: 0,
+    hints: buildLocalHints(type, country),
+    hintsFetched: false, wikiSentences: [],
+    shownHints: 0,
+    timerEnd: Date.now() + duration * 1000,
+    timerMax: duration,
+    timerInterval: null,
+  };
+
+  showScreen('game');
+  renderGame();
+  startTimer();
+}
+
+function buildLocalHints(type, country) {
+  const l = state.lang;
+  const hints = [];
+  if (type !== 'flag') {
+    hints.push({ label: T('hint_lbl') + ' 1', text: country.hints[l] || country.hints.en });
+  }
+  if (type === 'flag') {
+    // For flag game: continent is first hint, then wikipedia
+    const cl = CONTINENT_LABELS[country.continent] || country.continent;
+    hints.push({ label: T('hint_continent'), text: cl });
+  }
+  return hints;
+}
+
+// ══════════════════════════════════════════════════════════
+//  RENDER GAME
+// ══════════════════════════════════════════════════════════
+function renderGame() {
+  const g = state.game;
+  const l = state.lang;
+
+  // Title
+  const titles = {country:T('game_country'), capital:T('game_capital'),
+                  flag:T('game_flag'), challenge:T('game_challenge')};
+  document.getElementById('game-title').textContent = titles[g.type];
+  document.getElementById('game-progress').textContent =
+    `${state.usedCountries.size}/${getPool().length}`;
+
+  // Question
+  const flagEl    = document.getElementById('q-flag');
+  const capEl     = document.getElementById('q-capital');
+  const hintLbl   = document.getElementById('q-hint-label');
+  const hintEl    = document.getElementById('q-hint');
+  [flagEl, capEl, hintLbl, hintEl].forEach(e => e.style.display='none');
+
+  if (g.type === 'flag') {
+    flagEl.textContent = g.country.flag;
+    flagEl.style.display = 'block';
+  } else if (g.type === 'capital') {
+    capEl.textContent = g.country.capital;
+    capEl.style.display = 'block';
+  } else {
+    // country or challenge: show first hint inline too
+    hintLbl.textContent = T('hint_lbl');
+    hintLbl.style.display = 'block';
+    hintEl.textContent = g.country.hints[l] || g.country.hints.en;
+    hintEl.style.display = 'block';
+  }
+
+  // Easy mode: show flag hint inline for country game
+  if (state.difficulty === 'easy' && (g.type === 'country' || g.type === 'challenge')) {
+    flagEl.textContent = g.country.flag;
+    flagEl.style.display = 'block';
+  }
+
+  // Attempts
+  renderAttempts();
+
+  // Input
+  const inp = document.getElementById('answer-input');
+  inp.value = '';
+  inp.className = 'answer-input';
+  inp.placeholder = T('input_placeholder');
+  setTimeout(() => inp.focus(), 300);
+
+  // Clear hints
+  document.getElementById('hints-section').innerHTML = '';
+}
+
+function renderAttempts() {
+  const row = document.getElementById('attempts-row');
+  row.innerHTML = '';
+  for (let i = 0; i < MAX_ATTEMPTS; i++) {
+    const d = document.createElement('div');
+    d.className = 'attempt-dot ' + (i < state.game.attempts ? 'used' : 'remaining');
+    row.appendChild(d);
+  }
+}
+
+// ══════════════════════════════════════════════════════════
+//  TIMER
+// ══════════════════════════════════════════════════════════
+function startTimer() {
+  const g = state.game;
+  g.timerInterval = setInterval(() => {
+    const remaining = Math.max(0, g.timerEnd - Date.now());
+    const pct = remaining / (g.timerMax * 1000) * 100;
+    const bar = document.getElementById('timer-bar');
+    const txt = document.getElementById('timer-text');
+    bar.style.width = pct + '%';
+    bar.className = 'timer-bar' + (pct < 20 ? ' danger' : pct < 40 ? ' warn' : '');
+    const secs = Math.ceil(remaining / 1000);
+    txt.textContent = Math.floor(secs/60) + ':' + String(secs%60).padStart(2,'0');
+    if (remaining <= 0) { clearInterval(g.timerInterval); onTimeout(); }
+  }, 200);
+}
+
+function stopTimer() {
+  if (state.game?.timerInterval) clearInterval(state.game.timerInterval);
+}
+
+function onTimeout() {
+  if (!state.game) return;
+  const g = state.game;
+  sendResult(g.type, 'timeout', g.country.key);
+  showResult('timeout', g.country);
+  state.game = null;
+}
+
+// ══════════════════════════════════════════════════════════
+//  ANSWER
+// ══════════════════════════════════════════════════════════
+function submitAnswer() {
+  if (!state.game) return;
+  const input = document.getElementById('answer-input');
+  const raw = input.value.trim();
+  if (!raw) return;
+
+  const g = state.game;
+  const answer = raw.toLowerCase();
+  const country = g.country;
+
+  // Check all language forms
+  const accepted = [
+    country.key.toLowerCase(),
+    country.names.en.toLowerCase(),
+    country.names.ru.toLowerCase(),
+    country.names.uz.toLowerCase(),
+  ];
+
+  if (accepted.includes(answer)) {
+    stopTimer();
+    const isChallenge = g.type === 'challenge';
+    if (isChallenge) state.challengeDone = true;
+    sendResult(g.type, 'correct', country.key);
+    // Update streak
+    state.session.correct++;
+    state.session.streak++;
+    if (state.session.streak > state.session.best) state.session.best = state.session.streak;
+    updateSessionStats();
+    input.className = 'answer-input correct';
+    state.game = null;
+    setTimeout(() => showResult('correct', country), 200);
+  } else {
+    g.attempts++;
+    input.className = 'answer-input wrong';
+    renderAttempts();
+    if (g.attempts >= MAX_ATTEMPTS) {
+      stopTimer();
+      sendResult(g.type, 'wrong', country.key);
+      state.session.streak = 0;
+      updateSessionStats();
+      state.game = null;
+      setTimeout(() => showResult('failed', country), 200);
+    } else {
+      setTimeout(() => { input.className = 'answer-input'; input.value = ''; }, 500);
+    }
+    // Reset streak on wrong
+    if (g.attempts < MAX_ATTEMPTS) {
+      state.session.streak = 0;
+      updateSessionStats();
+    }
+  }
+}
+
+function giveUp() {
+  if (!state.game) return;
+  stopTimer();
+  const country = state.game.country;
+  sendResult(state.game.type, 'wrong', country.key);
+  state.session.streak = 0;
+  updateSessionStats();
+  state.game = null;
+  showResult('failed', country);
+}
+
+// ══════════════════════════════════════════════════════════
+//  HINTS
+// ══════════════════════════════════════════════════════════
+async function showNextHint() {
+  if (!state.game) return;
+  const g = state.game;
+  const l = state.lang;
+  const btn = document.getElementById('hint-btn');
+
+  // Build wiki hints on demand
+  if (!g.hintsFetched) {
+    g.hintsFetched = true;
+    btn.textContent = T('loading_hint');
+    btn.disabled = true;
+    try {
+      const en = g.country.names.en;
+      const title = encodeURIComponent(en.replace(/ /g,'_'));
+      const resp = await fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${title}`);
+      if (resp.ok) {
+        const data = await resp.json();
+        const extract = (data.extract || '').split('. ').filter(s => s.length > 20);
+        g.wikiSentences = extract.slice(0, 4).map(s => s + (s.endsWith('.') ? '' : '.'));
+      }
+    } catch(e) {}
+    // Append wiki sentences to hints list
+    g.wikiSentences.forEach((s,i) => g.hints.push({label: T('hint_wiki') + ` ${i+1}`, text: s}));
+    // Append continent, flag, capital as fallback hints
+    const cl = Object.values({africa:'Africa',asia:'Asia',europe:'Europe',
+      north_america:'N. America',south_america:'S. America',oceania:'Oceania'
+    })[Object.keys({africa:0,asia:1,europe:2,north_america:3,south_america:4,oceania:5})[g.country.continent]] || g.country.continent;
+    g.hints.push({label: T('hint_continent'), text: cl || g.country.continent});
+    if (g.type !== 'flag')
+      g.hints.push({label: T('hint_flag_hint'), text: g.country.flag});
+    if (g.type !== 'capital')
+      g.hints.push({label: T('hint_capital_hint'), text: g.country.capital});
+    btn.textContent = '💡 Hint';
+    btn.disabled = false;
+  }
+
+  // Show next hint
+  const idx = g.shownHints;
+  if (idx >= g.hints.length) {
+    btn.textContent = T('hint_exhausted');
+    btn.disabled = true;
+    return;
+  }
+  g.shownHints++;
+  const h = g.hints[idx];
+  const sec = document.getElementById('hints-section');
+  const div = document.createElement('div');
+  div.className = 'hint-item';
+  div.innerHTML = `<div class="hi-label">${h.label}</div>${h.text}`;
+  sec.appendChild(div);
+  sec.scrollIntoView({behavior:'smooth', block:'nearest'});
+
+  if (g.shownHints >= g.hints.length) {
+    btn.textContent = T('hint_exhausted');
+    btn.disabled = true;
+  }
+}
+
+// ══════════════════════════════════════════════════════════
+//  RESULT
+// ══════════════════════════════════════════════════════════
+function showResult(outcome, country) {
+  const l = state.lang;
+  const icons = {correct:'✅', failed:'❌', timeout:'⏰'};
+  const titles = {correct:T('correct'), failed:T('failed'), timeout:T('timeout')};
+
+  document.getElementById('res-icon').textContent = icons[outcome];
+  document.getElementById('res-title').textContent = titles[outcome];
+  document.getElementById('res-country').textContent =
+    country.flag + '  ' + country.names[l];
+  document.getElementById('res-sub').textContent =
+    T('res_capital') + country.capital;
+
+  const factEl = document.getElementById('res-fact');
+  factEl.style.display = 'none';
+  factEl.textContent = '';
+
+  document.getElementById('result-overlay').classList.add('active');
+
+  // Fetch Wikipedia fact
+  const en = country.names.en;
+  fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(en.replace(/ /g,'_'))}`)
+    .then(r => r.json())
+    .then(d => {
+      const ex = (d.extract||'').split('. ').filter(s=>s.length>20);
+      if (ex.length) {
+        factEl.textContent = ex.slice(0,2).join('. ') + '.';
+        factEl.style.display = 'block';
+      }
+    }).catch(()=>{});
+}
+
+function closeResult(playAgain) {
+  document.getElementById('result-overlay').classList.remove('active');
+  document.getElementById('answer-input').className = 'answer-input';
+  if (playAgain && state.game === null) {
+    const lastType = document.getElementById('game-title').textContent;
+    // Restart same game type - find type from title
+    const typeMap = {};
+    ['country','capital','flag','challenge'].forEach(t => {
+      typeMap[T('game_' + t)] = t;
+    });
+    const type = Object.values({country:T('game_country'),capital:T('game_capital'),
+      flag:T('game_flag'),challenge:T('game_challenge')})[0]; // fallback
+    startGame(_lastGameType || 'country');
+  } else {
+    goHome();
+  }
+}
+
+let _lastGameType = 'country';
+const _origStartGame = startGame;
+// Wrap startGame to track last type
+window.startGame = function(type) {
+  _lastGameType = type;
+  _origStartGame(type);
+};
+
+// ══════════════════════════════════════════════════════════
+//  SCREENS
+// ══════════════════════════════════════════════════════════
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('screen-' + id).classList.add('active');
+}
+
+function goHome() {
+  stopTimer();
+  state.game = null;
+  closePickers();
+  document.getElementById('result-overlay').classList.remove('active');
+  renderHome();
+  showScreen('home');
+}
+
+// ══════════════════════════════════════════════════════════
+//  SEND RESULT TO BOT
+// ══════════════════════════════════════════════════════════
+const _pendingResults = [];
+
+function sendResult(gameType, result, countryKey) {
+  _pendingResults.push({game: gameType, result, country: countryKey});
+  // Try to post to API if available
+  const uid = tg?.initDataUnsafe?.user?.id;
+  if (!uid) return;
+  fetch('/api/result', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({
+      user_id: String(uid),
+      username: tg?.initDataUnsafe?.user?.username || '',
+      game_type: gameType === 'challenge' ? 'country' : gameType,
+      result,
+      country_uz: countryKey,
+      init_data: tg?.initData || '',
+    }),
+  }).catch(() => {});
+}
+
+// ══════════════════════════════════════════════════════════
+//  TOAST
+// ══════════════════════════════════════════════════════════
+function showToast(msg) {
+  const t = document.createElement('div');
+  t.style.cssText = 'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);' +
+    'background:rgba(0,0,0,.8);color:#fff;padding:10px 20px;border-radius:20px;' +
+    'font-size:13px;z-index:200;animation:fadeIn .2s';
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 2500);
+}
+
+// ══════════════════════════════════════════════════════════
+//  INIT
+// ══════════════════════════════════════════════════════════
+renderHome();
+</script>
+</body>
+</html>
