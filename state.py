@@ -10,6 +10,9 @@ active_capital_games: Dict[str, dict] = {}
 # chat_id → {'country': uz_name, 'attempts': int, 'hint_data': dict, 'job': job|None}
 active_flag_games: Dict[str, dict] = {}
 
+# chat_id → {'country': uz_name, 'attempts': int, 'hint_data': dict, 'job': job|None}
+active_currency_games: Dict[str, dict] = {}
+
 # chat_id → set of uz country names already used
 used_capital_countries: Dict[str, Set[str]] = defaultdict(set)
 used_country_countries: Dict[str, Set[str]] = defaultdict(set)
@@ -35,6 +38,10 @@ def cancel_country_job(chat_id: str) -> None:
 
 def cancel_flag_job(chat_id: str) -> None:
     _cancel_job(active_flag_games.get(chat_id))
+
+
+def cancel_currency_job(chat_id: str) -> None:
+    _cancel_job(active_currency_games.get(chat_id))
 
 
 def new_hint_data() -> dict:

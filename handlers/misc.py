@@ -11,8 +11,8 @@ from database import (
 )
 from keyboards import default_kb, CHANGE_LANG_KB
 from state import (
-    active_country_games, active_capital_games, active_flag_games,
-    cancel_capital_job, cancel_country_job, cancel_flag_job,
+    active_country_games, active_capital_games, active_flag_games, active_currency_games,
+    cancel_capital_job, cancel_country_job, cancel_flag_job, cancel_currency_job,
     used_country_countries, used_capital_countries,
 )
 from handlers.flag import used_flag_countries
@@ -86,9 +86,11 @@ async def reset(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     cancel_capital_job(chat_id)
     cancel_country_job(chat_id)
     cancel_flag_job(chat_id)
+    cancel_currency_job(chat_id)
     active_country_games.pop(chat_id, None)
     active_capital_games.pop(chat_id, None)
     active_flag_games.pop(chat_id, None)
+    active_currency_games.pop(chat_id, None)
     used_capital_countries[chat_id].clear()
     used_country_countries[chat_id].clear()
     used_flag_countries[chat_id].clear()

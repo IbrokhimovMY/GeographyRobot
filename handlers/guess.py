@@ -6,15 +6,15 @@ import logging
 from telegram import Update
 from telegram.ext import ContextTypes
 
-from data import MAP_EN_TO_UZ, MAP_ANY_TO_UZ, COUNTRIES_SET, COUNTRY_FLAGS
+from data import MAP_EN_TO_UZ, MAP_ANY_TO_UZ, COUNTRIES_SET, COUNTRY_FLAGS, COUNTRY_CURRENCIES
 from database import (
     get_user_lang, get_display_name, record_result,
     increment_streak, reset_streak,
 )
 from keyboards import default_kb, guess_kb, map_kb
 from state import (
-    active_country_games, active_capital_games, active_flag_games,
-    cancel_capital_job, cancel_country_job, cancel_flag_job,
+    active_country_games, active_capital_games, active_flag_games, active_currency_games,
+    cancel_capital_job, cancel_country_job, cancel_flag_job, cancel_currency_job,
 )
 from translations import t, get_country_name
 
@@ -24,6 +24,7 @@ from handlers.facts import daily_facts_command, _fetch_wiki_fact
 from handlers.flag import get_flag, used_flag_countries
 from handlers.info import info_command, info_lookup
 from handlers.challenge import get_challenge, mark_solved
+from handlers.currency import get_currency_game
 
 logger = logging.getLogger(__name__)
 
@@ -48,6 +49,7 @@ def _build_routes():
         routes[s['btn_flag'].lower()]         = get_flag
         routes[s['btn_challenge'].lower()]    = get_challenge
         routes[s['btn_info'].lower()]         = info_command
+        routes[s['btn_currency'].lower()]     = get_currency_game
         routes[s['btn_region'].lower()]       = _region_btn
         routes[s['btn_difficulty'].lower()]   = _difficulty_btn
     return routes
@@ -185,6 +187,45 @@ async def handle_guess(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
                 remaining = MAX_ATTEMPTS - game['attempts']
                 await update.message.reply_text(
                     f"{t(lang, 'wrong_flag')} ({remaining}🎯)",
+                    reply_markup=guess_kb(lang),
+                )
+        return
+
+    # --- Currency game ---
+    if chat_id in active_currency_games:
+        game = active_currency_games[chat_id]
+        correct_uz = game['country']
+        if guess_uz.lower() == correct_uz.lower():
+            cancel_currency_job(chat_id)
+            del active_currency_games[chat_id]
+            flag = COUNTRY_FLAGS.get(correct_uz, '🏴')
+            correct_display = get_country_name(correct_uz, lang)
+            cur_name, cur_code = COUNTRY_CURRENCIES.get(correct_uz, ('', ''))
+            record_result(user_id, username, 'country', 'correct')
+            streak_sfx = _streak_suffix(user_id, username, lang)
+            msg = t(lang, 'correct_currency',
+                    country=html.escape(correct_display), flag=flag,
+                    currency=cur_name, code=cur_code) + streak_sfx
+            await update.message.reply_text(msg, parse_mode='HTML', reply_markup=default_kb(lang))
+            _schedule_fact(context, update.effective_chat.id, correct_uz, lang)
+        else:
+            game['attempts'] += 1
+            if game['attempts'] >= MAX_ATTEMPTS:
+                cancel_currency_job(chat_id)
+                del active_currency_games[chat_id]
+                correct_display = get_country_name(correct_uz, lang)
+                cur_name, cur_code = COUNTRY_CURRENCIES.get(correct_uz, ('', ''))
+                record_result(user_id, username, 'country', 'wrong')
+                reset_streak(user_id, username)
+                await update.message.reply_text(
+                    t(lang, 'game_failed', country=html.escape(correct_display)),
+                    parse_mode='HTML', reply_markup=default_kb(lang),
+                )
+            elif not in_group:
+                reset_streak(user_id, username)
+                remaining = MAX_ATTEMPTS - game['attempts']
+                await update.message.reply_text(
+                    f"{t(lang, 'wrong_country')} ({remaining}🎯)",
                     reply_markup=guess_kb(lang),
                 )
         return

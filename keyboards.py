@@ -7,9 +7,10 @@ from config import WEBAPP_URL
 def default_kb(lang: str) -> ReplyKeyboardMarkup:
     rows = [
         [t(lang, 'btn_country'), t(lang, 'btn_capital'), t(lang, 'btn_flag')],
-        [t(lang, 'btn_challenge'), t(lang, 'btn_stats'), t(lang, 'btn_top')],
-        [t(lang, 'btn_region'), t(lang, 'btn_difficulty'), t(lang, 'btn_reset')],
-        [t(lang, 'btn_daily_facts'), t(lang, 'btn_info'), t(lang, 'btn_help')],
+        [t(lang, 'btn_currency'), t(lang, 'btn_challenge'), t(lang, 'btn_stats')],
+        [t(lang, 'btn_top'), t(lang, 'btn_region'), t(lang, 'btn_difficulty')],
+        [t(lang, 'btn_daily_facts'), t(lang, 'btn_info'), t(lang, 'btn_reset')],
+        [t(lang, 'btn_help')],
     ]
     if WEBAPP_URL:
         rows.append([telegram.KeyboardButton(t(lang, 'btn_miniapp'), web_app=WebAppInfo(url=WEBAPP_URL))])

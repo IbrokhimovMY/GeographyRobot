@@ -4,11 +4,13 @@ import sys
 import os
 sys.path.insert(0, os.path.dirname(__file__))
 
-from data import COUNTRIES, COUNTRIES_CAPITALS, COUNTRY_FLAGS, COUNTRY_CONTINENTS, COUNTRY_HINTS_UZ
+from data import (COUNTRIES, COUNTRIES_CAPITALS, COUNTRY_FLAGS, COUNTRY_CONTINENTS,
+                  COUNTRY_HINTS_UZ, COUNTRY_ISO2, COUNTRY_CURRENCIES)
 from translations import COUNTRY_NAMES_EN, COUNTRY_NAMES_RU, COUNTRY_HINTS_EN, COUNTRY_HINTS_RU
 
 game_data = []
 for uz in COUNTRIES:
+    cur = COUNTRY_CURRENCIES.get(uz, ("", ""))
     game_data.append({
         "key": uz,
         "names": {
@@ -19,6 +21,8 @@ for uz in COUNTRIES:
         "capital": COUNTRIES_CAPITALS.get(uz, ""),
         "flag": COUNTRY_FLAGS.get(uz, "🏴"),
         "continent": COUNTRY_CONTINENTS.get(uz, ""),
+        "iso2": COUNTRY_ISO2.get(uz, ""),
+        "currency": {"name": cur[0], "code": cur[1]},
         "hints": {
             "uz": COUNTRY_HINTS_UZ.get(uz, ""),
             "en": COUNTRY_HINTS_EN.get(uz, ""),

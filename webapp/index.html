@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Geography Quiz</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/topojson@3/dist/topojson.min.js"></script>
 <script src="data.js"></script>
 <style>
 :root {
@@ -122,6 +124,18 @@ button{cursor:pointer;border:none;outline:none;font-family:inherit}
 .picker-option{padding:12px 14px;border-radius:8px;background:var(--bg2);font-size:14px;text-align:left;color:var(--text);display:flex;justify-content:space-between;align-items:center}
 .picker-option.active-opt{background:rgba(82,136,193,.2);color:var(--btn)}
 .picker-option .check{font-size:16px}
+
+/* ── map game ─────────────────────────────────────────────── */
+#map-svg-wrap{flex:1;min-height:280px;background:var(--bg2);border-radius:var(--r);overflow:hidden;margin-bottom:12px}
+#map-svg-wrap svg{width:100%;height:100%}
+.country-path{fill:#3a4a5a;stroke:#1a2634;stroke-width:.5;cursor:pointer;transition:.15s}
+.country-path:hover{fill:#4a6a8a}
+.country-path.target{fill:var(--btn);animation:pulse 1.2s ease-in-out infinite}
+.country-path.correct-flash{fill:var(--green)!important;animation:none}
+.country-path.wrong-flash{fill:var(--red)!important;animation:none}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.6}}
+.currency-display{font-size:22px;font-weight:700;margin:8px 0 4px}
+.currency-code{font-size:14px;color:var(--hint);font-family:monospace}
 </style>
 </head>
 <body>
@@ -151,6 +165,14 @@ button{cursor:pointer;border:none;outline:none;font-family:inherit}
     <button class="game-btn" onclick="startGame('flag')">
       <span class="icon">🚩</span>
       <span id="btn-flag">Flag Game</span>
+    </button>
+    <button class="game-btn" onclick="startGame('currency')">
+      <span class="icon">💰</span>
+      <span id="btn-currency">Currency</span>
+    </button>
+    <button class="game-btn" onclick="startGame('map')">
+      <span class="icon">🗺</span>
+      <span id="btn-map">Map Game</span>
     </button>
     <button class="game-btn" onclick="startGame('challenge')">
       <span class="icon">🎯</span>
@@ -242,6 +264,31 @@ button{cursor:pointer;border:none;outline:none;font-family:inherit}
   </div>
 </div>
 
+<!-- ═══════════════════════════ MAP GAME ══════════════════════ -->
+<div id="screen-map" class="screen">
+  <div class="game-header">
+    <button class="back-btn" onclick="goHome()">←</button>
+    <div>
+      <div class="game-title" id="map-title">Find Country on Map</div>
+      <div class="game-subtitle" id="map-progress">Tap the highlighted country</div>
+    </div>
+  </div>
+  <div class="timer-wrap">
+    <div class="timer-bar-bg"><div class="timer-bar" id="map-timer-bar"></div></div>
+    <div class="timer-text" id="map-timer-text">1:30</div>
+  </div>
+  <div class="question-card" style="min-height:60px">
+    <div id="map-question" style="font-size:18px;font-weight:700"></div>
+    <div id="map-question-sub" style="font-size:13px;color:var(--hint);margin-top:4px"></div>
+  </div>
+  <div id="map-svg-wrap"></div>
+  <div class="attempts" id="map-attempts-row"></div>
+  <div class="btn-row col2">
+    <button class="btn secondary small" onclick="goHome()">🏠 Menu</button>
+    <button class="btn danger small" onclick="giveUpMap()">✖ Give up</button>
+  </div>
+</div>
+
 <!-- ═══════════════════════════ PICKERS ═══════════════════════ -->
 <div class="picker" id="picker-region">
   <div class="picker-card">
@@ -266,6 +313,8 @@ const I18N = {
     home_sub:'Test your world knowledge',
     btn_country:'Find Country', btn_capital:'Find Capital',
     btn_flag:'Flag Game', btn_challenge:'Daily Challenge',
+    btn_currency:'Currency Game', btn_map:'Map Game',
+    game_currency:'Guess the Country by Currency', game_map:'Find Country on Map',
     lbl_region:'Region', lbl_difficulty:'Difficulty',
     lbl_correct:'Correct', lbl_streak:'Streak', lbl_best:'Best',
     game_country:'Find the Country', game_capital:'Find the Capital',
@@ -293,6 +342,8 @@ const I18N = {
     home_sub:'Dunyo geografiyasini sinab ko\'ring',
     btn_country:'Davlat topish', btn_capital:'Poytaxt topish',
     btn_flag:'Bayroq topish', btn_challenge:'Kunlik topshiriq',
+    btn_currency:'Valyuta oʻyini', btn_map:'Xarita oʻyini',
+    game_currency:'Valyuta orqali davlatni toping', game_map:'Xaritada davlatni toping',
     lbl_region:'Hudud', lbl_difficulty:'Daraja',
     lbl_correct:'To\'g\'ri', lbl_streak:'Ketma-ket', lbl_best:'Rekord',
     game_country:'Davlatni toping', game_capital:'Poytaxtni toping',
@@ -320,6 +371,8 @@ const I18N = {
     home_sub:'Проверьте знания географии',
     btn_country:'Найти страну', btn_capital:'Найти столицу',
     btn_flag:'Игра флагов', btn_challenge:'Ежедневное задание',
+    btn_currency:'Игра «Валюта»', btn_map:'Игра на карте',
+    game_currency:'Угадайте страну по валюте', game_map:'Найдите страну на карте',
     lbl_region:'Регион', lbl_difficulty:'Сложность',
     lbl_correct:'Верно', lbl_streak:'Серия', lbl_best:'Рекорд',
     game_country:'Найдите страну', game_capital:'Найдите столицу',
@@ -389,10 +442,12 @@ function getDailyChallenge() {
 }
 
 const TIMERS = {
-  country: {easy:120, normal:90, hard:60},
-  capital: {easy:90,  normal:60, hard:30},
-  flag:    {easy:90,  normal:60, hard:40},
+  country:  {easy:120, normal:90, hard:60},
+  capital:  {easy:90,  normal:60, hard:30},
+  flag:     {easy:90,  normal:60, hard:40},
   challenge:{easy:120, normal:90, hard:60},
+  currency: {easy:120, normal:90, hard:60},
+  map:      {easy:150, normal:120, hard:90},
 };
 const MAX_ATTEMPTS = 5;
 
@@ -412,6 +467,8 @@ function renderHome() {
   document.getElementById('btn-capital').textContent = s.btn_capital;
   document.getElementById('btn-flag').textContent    = s.btn_flag;
   document.getElementById('btn-challenge').textContent = s.btn_challenge;
+  document.getElementById('btn-currency').textContent = s.btn_currency;
+  document.getElementById('btn-map').textContent     = s.btn_map;
   document.getElementById('lbl-region').textContent  = s.lbl_region;
   document.getElementById('lbl-difficulty').textContent = s.lbl_difficulty;
   document.getElementById('lbl-correct').textContent = s.lbl_correct;
@@ -491,6 +548,8 @@ function startGame(type) {
   if (type === 'challenge' && state.challengeDone) {
     showToast(T('challenge_done')); return;
   }
+  if (type === 'map') { startMapGame(); return; }
+
   const country = pickCountry(type);
   if (!country) { showToast('No countries available!'); return; }
   state.usedCountries.add(country.key);
@@ -514,13 +573,11 @@ function startGame(type) {
 function buildLocalHints(type, country) {
   const l = state.lang;
   const hints = [];
-  if (type !== 'flag') {
-    hints.push({ label: T('hint_lbl') + ' 1', text: country.hints[l] || country.hints.en });
-  }
-  if (type === 'flag') {
-    // For flag game: continent is first hint, then wikipedia
+  if (type === 'flag' || type === 'currency') {
     const cl = CONTINENT_LABELS[country.continent] || country.continent;
     hints.push({ label: T('hint_continent'), text: cl });
+  } else {
+    hints.push({ label: T('hint_lbl') + ' 1', text: country.hints[l] || country.hints.en });
   }
   return hints;
 }
@@ -534,7 +591,8 @@ function renderGame() {
 
   // Title
   const titles = {country:T('game_country'), capital:T('game_capital'),
-                  flag:T('game_flag'), challenge:T('game_challenge')};
+                  flag:T('game_flag'), challenge:T('game_challenge'),
+                  currency:T('game_currency')};
   document.getElementById('game-title').textContent = titles[g.type];
   document.getElementById('game-progress').textContent =
     `${state.usedCountries.size}/${getPool().length}`;
@@ -546,7 +604,13 @@ function renderGame() {
   const hintEl    = document.getElementById('q-hint');
   [flagEl, capEl, hintLbl, hintEl].forEach(e => e.style.display='none');
 
-  if (g.type === 'flag') {
+  if (g.type === 'currency') {
+    hintLbl.textContent = '💰';
+    hintLbl.style.display = 'block';
+    const cur = g.country.currency || {};
+    hintEl.innerHTML = `<div class="currency-display">${cur.name || '?'}</div><div class="currency-code">${cur.code || ''}</div>`;
+    hintEl.style.display = 'block';
+  } else if (g.type === 'flag') {
     flagEl.textContent = g.country.flag;
     flagEl.style.display = 'block';
   } else if (g.type === 'capital') {
@@ -702,9 +766,14 @@ async function showNextHint() {
     btn.textContent = T('loading_hint');
     btn.disabled = true;
     try {
-      const en = g.country.names.en;
-      const title = encodeURIComponent(en.replace(/ /g,'_'));
-      const resp = await fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${title}`);
+      const wikiLang = state.lang === 'ru' ? 'ru' : state.lang === 'uz' ? 'uz' : 'en';
+      const wikiName = g.country.names[wikiLang] || g.country.names.en;
+      let title = encodeURIComponent(wikiName.replace(/ /g,'_'));
+      let resp = await fetch(`https://${wikiLang}.wikipedia.org/api/rest_v1/page/summary/${title}`);
+      if (!resp.ok && wikiLang !== 'en') {
+        title = encodeURIComponent(g.country.names.en.replace(/ /g,'_'));
+        resp = await fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${title}`);
+      }
       if (resp.ok) {
         const data = await resp.json();
         const extract = (data.extract || '').split('. ').filter(s => s.length > 20);
@@ -769,10 +838,14 @@ function showResult(outcome, country) {
 
   document.getElementById('result-overlay').classList.add('active');
 
-  // Fetch Wikipedia fact
-  const en = country.names.en;
-  fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(en.replace(/ /g,'_'))}`)
-    .then(r => r.json())
+  // Fetch Wikipedia fact in user's language, fall back to English
+  const wikiLang = state.lang === 'ru' ? 'ru' : state.lang === 'uz' ? 'uz' : 'en';
+  const wikiName = country.names[wikiLang] || country.names.en;
+  const tryWiki = (lang, name) =>
+    fetch(`https://${lang}.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(name.replace(/ /g,'_'))}`)
+      .then(r => r.ok ? r.json() : Promise.reject());
+  tryWiki(wikiLang, wikiName)
+    .catch(() => wikiLang !== 'en' ? tryWiki('en', country.names.en) : Promise.reject())
     .then(d => {
       const ex = (d.extract||'').split('. ').filter(s=>s.length>20);
       if (ex.length) {
@@ -819,6 +892,7 @@ function showScreen(id) {
 function goHome() {
   stopTimer();
   state.game = null;
+  if (_mapGame) { clearInterval(_mapGame.timerInterval); _mapGame = null; }
   closePickers();
   document.getElementById('result-overlay').classList.remove('active');
   renderHome();
@@ -863,9 +937,166 @@ function showToast(msg) {
 }
 
 // ══════════════════════════════════════════════════════════
+//  MAP GAME
+// ══════════════════════════════════════════════════════════
+// ISO-2 → numeric ISO 3166-1 mapping (for world-atlas topojson)
+const ISO2_NUM = {AF:4,AL:8,DZ:12,AD:20,AO:24,AG:28,AR:32,AM:51,AU:36,AT:40,AZ:31,BS:44,BH:48,BD:50,BB:52,BY:112,BE:56,BZ:84,BJ:204,BT:64,BO:68,BA:70,BW:72,BR:76,BN:96,BG:100,BF:854,BI:108,CV:132,KH:116,CM:120,CA:124,CF:140,TD:148,CL:152,CN:156,CO:170,KM:174,CD:180,CG:178,CR:188,HR:191,CU:192,CY:196,CZ:203,DK:208,DJ:262,DM:212,DO:214,EC:218,EG:818,SV:222,GQ:226,ER:232,EE:233,SZ:748,ET:231,FJ:242,FI:246,FR:250,GA:266,GM:270,GE:268,DE:276,GH:288,GR:300,GD:308,GT:320,GN:324,GW:624,GY:328,HT:332,HN:340,HU:348,IS:352,IN:356,ID:360,IR:364,IQ:368,IE:372,IL:376,IT:380,JM:388,JP:392,JO:400,KZ:398,KE:404,KI:296,KW:414,KG:417,LA:418,LV:428,LB:422,LS:426,LR:430,LY:434,LI:438,LT:440,LU:442,MG:450,MW:454,MY:458,MV:462,ML:466,MT:470,MH:584,MR:478,MU:480,MX:484,FM:583,MD:498,MC:492,MN:496,ME:499,MA:504,MZ:508,MM:104,NA:516,NR:520,NP:524,NL:528,NZ:554,NI:558,NE:562,NG:566,KP:408,MK:807,NO:578,OM:512,PK:586,PW:585,PS:275,PA:591,PG:598,PY:600,PE:604,PH:608,PL:616,PT:620,QA:634,RO:642,RU:643,RW:646,KN:659,LC:662,VC:670,WS:882,SM:674,ST:678,SA:682,SN:686,RS:688,SC:690,SL:694,SG:702,SK:703,SI:705,SB:90,SO:706,ZA:710,KR:410,SS:728,ES:724,LK:144,SD:729,SR:740,SE:752,CH:756,SY:760,TW:158,TJ:762,TZ:834,TH:764,TL:626,TG:768,TO:776,TT:780,TN:788,TR:792,TM:795,TV:798,UG:800,UA:804,AE:784,GB:826,US:840,UY:858,UZ:860,VU:548,VA:336,VE:862,VN:704,YE:887,ZM:894,ZW:716};
+const NUM_ISO2 = Object.fromEntries(Object.entries(ISO2_NUM).map(([k,v])=>[v,k]));
+
+let _worldData = null;
+let _mapGame = null;
+
+async function startMapGame() {
+  const pool = (state.region === 'all' ? GAME_DATA : GAME_DATA.filter(c=>c.continent===state.region))
+    .filter(c => c.iso2 && ISO2_NUM[c.iso2]);
+  if (!pool.length) { showToast('No countries!'); return; }
+  const country = pool[Math.floor(Math.random()*pool.length)];
+  const duration = TIMERS.map[state.difficulty];
+  _mapGame = {
+    country, attempts: 0,
+    timerEnd: Date.now() + duration * 1000,
+    timerMax: duration,
+    timerInterval: null,
+  };
+  showScreen('map');
+  // Set up header
+  const l = state.lang;
+  document.getElementById('map-title').textContent = T('game_map');
+  document.getElementById('map-question').textContent = country.names[l] || country.names.en;
+  document.getElementById('map-question-sub').textContent = country.flag + '  ' + T('input_placeholder').replace('…','');
+  renderMapAttempts();
+  startMapTimer();
+  await renderMap(country);
+}
+
+async function renderMap(target) {
+  const wrap = document.getElementById('map-svg-wrap');
+  wrap.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:280px;color:var(--hint)">Loading map…</div>';
+  if (!_worldData) {
+    try {
+      _worldData = await d3.json('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json');
+    } catch(e) { wrap.innerHTML = '<div style="padding:20px;color:var(--red)">Map unavailable</div>'; return; }
+  }
+  const w = wrap.clientWidth || 360, h = Math.max(220, Math.min(w*0.55, 320));
+  wrap.innerHTML = '';
+  const svg = d3.select(wrap).append('svg').attr('viewBox',`0 0 ${w} ${h}`);
+  const proj = d3.geoNaturalEarth1().scale(w/6.5).translate([w/2, h/2]);
+  const path = d3.geoPath().projection(proj);
+  const countries = topojson.feature(_worldData, _worldData.objects.countries);
+  const targetNum = ISO2_NUM[target.iso2];
+
+  svg.selectAll('path')
+    .data(countries.features)
+    .enter().append('path')
+    .attr('class', d => 'country-path' + (d.id == targetNum ? ' target' : ''))
+    .attr('d', path)
+    .attr('data-num', d => d.id)
+    .on('click', function(event, d) { onMapClick(d.id, this); });
+}
+
+function onMapClick(numId, el) {
+  if (!_mapGame) return;
+  const iso2 = NUM_ISO2[numId];
+  if (!iso2) return;
+  const correct = _mapGame.country;
+  if (iso2 === correct.iso2) {
+    clearInterval(_mapGame.timerInterval);
+    el.classList.add('correct-flash');
+    const l = state.lang;
+    record_result_map('country', 'correct', correct.key);
+    state.session.correct++;
+    state.session.streak++;
+    if (state.session.streak > state.session.best) state.session.best = state.session.streak;
+    updateSessionStats();
+    setTimeout(() => { _mapGame = null; showResult('correct', correct); goHome(); }, 700);
+  } else {
+    el.classList.add('wrong-flash');
+    setTimeout(() => el.classList.remove('wrong-flash'), 600);
+    _mapGame.attempts++;
+    renderMapAttempts();
+    if (_mapGame.attempts >= MAX_ATTEMPTS) {
+      clearInterval(_mapGame.timerInterval);
+      _mapGame = null;
+      state.session.streak = 0;
+      updateSessionStats();
+      showResult('failed', correct);
+      goHome();
+    }
+  }
+}
+
+function record_result_map(gameType, result, key) {
+  sendResult(gameType, result, key);
+}
+
+function renderMapAttempts() {
+  if (!_mapGame) return;
+  const row = document.getElementById('map-attempts-row');
+  row.innerHTML = '';
+  for (let i = 0; i < MAX_ATTEMPTS; i++) {
+    const d = document.createElement('div');
+    d.className = 'attempt-dot ' + (i < _mapGame.attempts ? 'used' : 'remaining');
+    row.appendChild(d);
+  }
+}
+
+function startMapTimer() {
+  if (!_mapGame) return;
+  _mapGame.timerInterval = setInterval(() => {
+    if (!_mapGame) return;
+    const remaining = Math.max(0, _mapGame.timerEnd - Date.now());
+    const pct = remaining / (_mapGame.timerMax * 1000) * 100;
+    const bar = document.getElementById('map-timer-bar');
+    const txt = document.getElementById('map-timer-text');
+    if (!bar) return;
+    bar.style.width = pct + '%';
+    bar.className = 'timer-bar' + (pct<20?' danger':pct<40?' warn':'');
+    const secs = Math.ceil(remaining/1000);
+    txt.textContent = Math.floor(secs/60)+':'+String(secs%60).padStart(2,'0');
+    if (remaining <= 0) {
+      clearInterval(_mapGame.timerInterval);
+      const c = _mapGame.country;
+      _mapGame = null;
+      state.session.streak = 0;
+      updateSessionStats();
+      showResult('timeout', c);
+      goHome();
+    }
+  }, 200);
+}
+
+function giveUpMap() {
+  if (!_mapGame) { goHome(); return; }
+  clearInterval(_mapGame.timerInterval);
+  const c = _mapGame.country;
+  _mapGame = null;
+  state.session.streak = 0;
+  updateSessionStats();
+  showResult('failed', c);
+  goHome();
+}
+
+// ══════════════════════════════════════════════════════════
+//  PERSISTENT STATS
+// ══════════════════════════════════════════════════════════
+function loadPersistentStats() {
+  const uid = tg?.initDataUnsafe?.user?.id;
+  if (!uid) return;
+  fetch(`/api/stats?user_id=${uid}`)
+    .then(r => r.json())
+    .then(d => {
+      const total = (d.correct_countries || 0) + (d.correct_capitals || 0);
+      if (total > state.session.correct) state.session.correct = total;
+      if ((d.best_streak || 0) > state.session.best) state.session.best = d.best_streak || 0;
+      updateSessionStats();
+    }).catch(()=>{});
+}
+
+// ══════════════════════════════════════════════════════════
 //  INIT
 // ══════════════════════════════════════════════════════════
 renderHome();
+loadPersistentStats();
 </script>
 </body>
 </html>

@@ -18,6 +18,7 @@ from handlers.facts import daily_facts_command, send_daily_facts
 from handlers.flag import get_flag
 from handlers.info import info_command
 from handlers.challenge import get_challenge
+from handlers.currency import get_currency_game
 from handlers.settings import (
     region_command, region_callback,
     difficulty_command, difficulty_callback,
@@ -52,6 +53,7 @@ def main() -> None:
     app.add_handler(CommandHandler('getcapital', get_capital))
     app.add_handler(CommandHandler('getflag',    get_flag))
     app.add_handler(CommandHandler('challenge',  get_challenge))
+    app.add_handler(CommandHandler('getcurrency', get_currency_game))
     app.add_handler(CommandHandler('hint',       hint))
     app.add_handler(CommandHandler('info',       info_command))
 

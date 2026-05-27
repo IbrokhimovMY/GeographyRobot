@@ -113,6 +113,10 @@ STRINGS = {
         'timeout_country': "⏰ Vaqt tugadi! Toʻgʻri javob: *{country}*.",
         'timeout_flag': "⏰ Vaqt tugadi! Bayroq: {flag} — *{country}*.",
         'game_failed': "❌ 5 urinishdan keyin topilmadi. Toʻgʻri javob: <b>{country}</b>\nBilimingizni oshirish uchun 🔍 Maʼlumot tugmasini bosing.",
+        'btn_currency': '💰 Valyuta',
+        'currency_question': "💰 <b>Valyuta oʻyini</b>\n\nQaysi mamlakat bu valyutadan foydalanadi?\n\n💵 <b>{currency}</b> (<code>{code}</code>)\n\nDavlat nomini yozing!",
+        'timeout_currency': "⏰ Vaqt tugadi! Javob: <b>{country}</b>\nValyuta: {currency} ({code}).",
+        'correct_currency': "✅ Toʻgʻri! <b>{country}</b> {flag}\nValyuta: {currency} ({code})",
     },
     'en': {
         'btn_country': '🌍 Find Country',
@@ -228,6 +232,10 @@ STRINGS = {
         'timeout_country': "⏰ Time's up! Correct answer: *{country}*.",
         'timeout_flag': "⏰ Time's up! Flag: {flag} — *{country}*.",
         'game_failed': "❌ Could not find it in 5 attempts. Answer: <b>{country}</b>\nImprove your knowledge by pressing the 🔍 Country Info button.",
+        'btn_currency': '💰 Currency',
+        'currency_question': "💰 <b>Currency Game</b>\n\nWhich country uses this currency?\n\n💵 <b>{currency}</b> (<code>{code}</code>)\n\nType the country name!",
+        'timeout_currency': "⏰ Time's up! Answer: <b>{country}</b>\nCurrency: {currency} ({code}).",
+        'correct_currency': "✅ Correct! <b>{country}</b> {flag}\nCurrency: {currency} ({code})",
     },
     'ru': {
         'btn_country': '🌍 Найти страну',
@@ -343,6 +351,10 @@ STRINGS = {
         'timeout_country': "⏰ Время вышло! Правильный ответ: *{country}*.",
         'timeout_flag': "⏰ Время вышло! Флаг: {flag} — *{country}*.",
         'game_failed': "❌ Не удалось найти за 5 попыток. Ответ: <b>{country}</b>\nУлучшите знания, нажав кнопку 🔍 Информация.",
+        'btn_currency': '💰 Валюта',
+        'currency_question': "💰 <b>Игра «Валюта»</b>\n\nКакая страна использует эту валюту?\n\n💵 <b>{currency}</b> (<code>{code}</code>)\n\nНапишите название страны!",
+        'timeout_currency': "⏰ Время вышло! Ответ: <b>{country}</b>\nВалюта: {currency} ({code}).",
+        'correct_currency': "✅ Правильно! <b>{country}</b> {flag}\nВалюта: {currency} ({code})",
     },
 }
 
