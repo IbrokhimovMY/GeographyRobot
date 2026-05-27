@@ -570,15 +570,46 @@ function startGame(type) {
   startTimer();
 }
 
+const CONTINENT_NAMES = {
+  africa:{uz:'Afrika',ru:'Африка',en:'Africa'},
+  asia:{uz:'Osiyo',ru:'Азия',en:'Asia'},
+  europe:{uz:'Yevropa',ru:'Европа',en:'Europe'},
+  north_america:{uz:'Shimoliy Amerika',ru:'Северная Америка',en:'North America'},
+  south_america:{uz:'Janubiy Amerika',ru:'Южная Америка',en:'South America'},
+  oceania:{uz:'Okeaniya',ru:'Океания',en:'Oceania'},
+};
+
 function buildLocalHints(type, country) {
   const l = state.lang;
   const hints = [];
-  if (type === 'flag' || type === 'currency') {
-    const cl = CONTINENT_LABELS[country.continent] || country.continent;
-    hints.push({ label: T('hint_continent'), text: cl });
-  } else {
-    hints.push({ label: T('hint_lbl') + ' 1', text: country.hints[l] || country.hints.en });
+  const contObj = CONTINENT_NAMES[country.continent];
+  const contText = contObj ? contObj[l] || contObj.en : country.continent;
+  const name = country.names[l] || country.names.en;
+  const firstLetter = name[0].toUpperCase();
+  const letterCount = name.replace(/ /g,'').length;
+
+  // 1. Description (not for flag/currency where it might hint too much)
+  if (type !== 'flag' && type !== 'currency') {
+    const desc = country.hints[l] || country.hints.en;
+    if (desc) hints.push({ label: T('hint_lbl') + ' 1', text: desc });
   }
+
+  // 2. Continent
+  hints.push({ label: T('hint_continent'), text: contText });
+
+  // 3. Flag emoji (not for flag game)
+  if (type !== 'flag') {
+    hints.push({ label: T('hint_flag_hint'), text: country.flag + '  ' + country.flag });
+  }
+
+  // 4. Capital (not for capital game)
+  if (type !== 'capital') {
+    hints.push({ label: T('hint_capital_hint'), text: country.capital });
+  }
+
+  // 5. First letter + letter count
+  hints.push({ label: T('hint_lbl') + ' 🔤', text: `${firstLetter}... (${letterCount} ${l==='uz'?'harf':l==='ru'?'букв':'letters'})` });
+
   return hints;
 }
 
@@ -752,32 +783,34 @@ function giveUp() {
 }
 
 // ══════════════════════════════════════════════════════════
-//  HINTS  (one hint per game, no Wikipedia to avoid spoilers)
+//  HINTS  (safe progression — no Wikipedia, never reveals answer)
 // ══════════════════════════════════════════════════════════
 function showNextHint() {
   if (!state.game) return;
   const g = state.game;
   const btn = document.getElementById('hint-btn');
 
-  // Only one hint allowed
-  if (g.shownHints > 0) {
+  const idx = g.shownHints;
+  if (idx >= g.hints.length) {
     btn.textContent = T('hint_exhausted');
     btn.disabled = true;
     return;
   }
 
-  const h = g.hints[0];
-  if (!h) { btn.disabled = true; return; }
+  const h = g.hints[idx];
+  g.shownHints++;
 
-  g.shownHints = 1;
   const sec = document.getElementById('hints-section');
   const div = document.createElement('div');
   div.className = 'hint-item';
   div.innerHTML = `<div class="hi-label">${h.label}</div>${h.text}`;
   sec.appendChild(div);
   sec.scrollIntoView({behavior:'smooth', block:'nearest'});
-  btn.textContent = T('hint_exhausted');
-  btn.disabled = true;
+
+  if (g.shownHints >= g.hints.length) {
+    btn.textContent = T('hint_exhausted');
+    btn.disabled = true;
+  }
 }
 
 // ══════════════════════════════════════════════════════════
