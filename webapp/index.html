@@ -426,7 +426,7 @@ function detectLang() {
   const l = tg?.initDataUnsafe?.user?.language_code || navigator.language || 'en';
   if (l.startsWith('uz')) return 'uz';
   if (l.startsWith('ru')) return 'ru';
-  return 'en';
+  return 'uz';
 }
 
 function T(key) { return (I18N[state.lang] || I18N.en)[key] || key; }
@@ -479,10 +479,15 @@ function renderHome() {
   updateSessionStats();
 }
 
+function saveStats() {
+  try { localStorage.setItem('geo_stats', JSON.stringify(state.session)); } catch(e) {}
+}
+
 function updateSessionStats() {
   document.getElementById('stat-correct').textContent = state.session.correct;
   document.getElementById('stat-streak').textContent  = '🔥' + state.session.streak;
   document.getElementById('stat-best').textContent    = state.session.best;
+  saveStats();
 }
 
 // ══════════════════════════════════════════════════════════
@@ -671,8 +676,10 @@ function renderGame() {
   inp.placeholder = T('input_placeholder');
   setTimeout(() => inp.focus(), 300);
 
-  // Clear hints
+  // Clear hints and reset hint button
   document.getElementById('hints-section').innerHTML = '';
+  const hintBtn = document.getElementById('hint-btn');
+  if (hintBtn) { hintBtn.textContent = '💡 ' + T('hint_lbl'); hintBtn.disabled = false; }
 }
 
 function renderAttempts() {
@@ -1098,6 +1105,16 @@ function giveUpMap() {
 //  PERSISTENT STATS
 // ══════════════════════════════════════════════════════════
 function loadPersistentStats() {
+  // Load from localStorage first (works offline and survives redeploys)
+  try {
+    const saved = JSON.parse(localStorage.getItem('geo_stats') || '{}');
+    if ((saved.correct || 0) > 0) state.session.correct = saved.correct;
+    if ((saved.best || 0) > 0) state.session.best = saved.best;
+    if ((saved.streak || 0) > 0) state.session.streak = saved.streak;
+    updateSessionStats();
+  } catch(e) {}
+
+  // Then sync with API if user is identified
   const uid = tg?.initDataUnsafe?.user?.id;
   if (!uid) return;
   fetch(`/api/stats?user_id=${uid}`)
