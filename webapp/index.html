@@ -101,6 +101,11 @@ button{cursor:pointer;border:none;outline:none;font-family:inherit}
 /* hints section */
 .hints-section{margin-bottom:14px}
 .hint-item{background:var(--bg2);border-radius:8px;padding:10px 12px;margin-bottom:6px;font-size:13px;line-height:1.5;animation:fadeIn .3s}
+.hist-item{display:flex;align-items:center;gap:8px;padding:10px 12px;border-radius:10px;margin-bottom:6px;background:var(--bg2);border-left:3px solid transparent}
+.hist-item.correct{border-left-color:#4caf50}.hist-item.failed{border-left-color:#f44336}.hist-item.timeout{border-left-color:#ff9800}
+.hi{font-size:17px;min-width:20px}.hf{font-size:20px;min-width:26px}.hn{flex:1;font-weight:500;font-size:13px}.ht{font-size:16px}
+.hd{font-size:11px;color:var(--hint);min-width:58px;text-align:right}
+.hist-clear-btn{width:100%;padding:10px;margin-top:8px;background:transparent;border:1px solid var(--hint);border-radius:var(--r);color:var(--hint);font-size:13px;cursor:pointer}
 .hint-item .hi-label{font-size:11px;color:var(--link);font-weight:600;margin-bottom:3px}
 @keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
 
@@ -206,7 +211,21 @@ button{cursor:pointer;border:none;outline:none;font-family:inherit}
         <div class="streak-lbl" id="lbl-best">Best</div>
       </div>
     </div>
+    <div style="margin-top:10px;text-align:center">
+      <button class="btn secondary" id="btn-history" onclick="openHistory()" style="width:100%;padding:9px">📋 History</button>
+    </div>
   </div>
+</div>
+
+<!-- ═══════════════════════════ HISTORY ═══════════════════════ -->
+<div id="screen-history" class="screen">
+  <div class="game-header">
+    <button class="back-btn" onclick="goHome()">←</button>
+    <div>
+      <div class="game-title" id="hist-title">My History</div>
+    </div>
+  </div>
+  <div id="hist-list" style="padding:12px;overflow-y:auto;flex:1"></div>
 </div>
 
 <!-- ═══════════════════════════ GAME ═══════════════════════════ -->
@@ -337,6 +356,9 @@ const I18N = {
     challenge_done:'You already completed today\'s challenge!',
     picker_region:'Select Region', picker_diff:'Select Difficulty',
     streak_msg:' in a row! 🔥', best_msg:'New record: ',
+    btn_history:'📋 History', history_title:'My History', history_empty:'No games played yet.',
+    hist_correct:'Correct', hist_failed:'Wrong', hist_timeout:'Timeout',
+    hist_type:{country:'🌍', capital:'🏙', flag:'🚩', challenge:'🎯', currency:'💰', map:'🗺'},
   },
   uz: {
     home_sub:'Dunyo geografiyasini sinab ko\'ring',
@@ -366,6 +388,9 @@ const I18N = {
     challenge_done:'Bugungi topshiriqni allaqachon bajardingiz!',
     picker_region:'Hududni tanlang', picker_diff:'Darajani tanlang',
     streak_msg:' ta ketma-ket! 🔥', best_msg:'Yangi rekord: ',
+    btn_history:"📋 Tarix", history_title:"Mening tarixim", history_empty:"Hali o'yin o'ynalmagan.",
+    hist_correct:"To'g'ri", hist_failed:"Noto'g'ri", hist_timeout:'Vaqt tugadi',
+    hist_type:{country:'🌍', capital:'🏙', flag:'🚩', challenge:'🎯', currency:'💰', map:'🗺'},
   },
   ru: {
     home_sub:'Проверьте знания географии',
@@ -395,6 +420,9 @@ const I18N = {
     challenge_done:'Вы уже выполнили сегодняшнее задание!',
     picker_region:'Выберите регион', picker_diff:'Выберите сложность',
     streak_msg:' подряд! 🔥', best_msg:'Новый рекорд: ',
+    btn_history:'📋 История', history_title:'Моя история', history_empty:'Пока нет сыгранных игр.',
+    hist_correct:'Верно', hist_failed:'Неверно', hist_timeout:'Время вышло',
+    hist_type:{country:'🌍', capital:'🏙', flag:'🚩', challenge:'🎯', currency:'💰', map:'🗺'},
   },
 };
 
@@ -476,6 +504,7 @@ function renderHome() {
   document.getElementById('lbl-best').textContent    = s.lbl_best;
   document.getElementById('val-region').textContent  = s.region_labels[state.region] + ' ›';
   document.getElementById('val-difficulty').textContent = s.diff_labels[state.difficulty] + ' ›';
+  document.getElementById('btn-history').textContent = s.btn_history;
   updateSessionStats();
 }
 
@@ -828,6 +857,10 @@ function showResult(outcome, country) {
   const icons = {correct:'✅', failed:'❌', timeout:'⏰'};
   const titles = {correct:T('correct'), failed:T('failed'), timeout:T('timeout')};
 
+  // Save to history
+  const gameType = state.game?.type || _lastGameType || 'country';
+  addToHistory(gameType, country, outcome);
+
   document.getElementById('res-icon').textContent = icons[outcome];
   document.getElementById('res-title').textContent = titles[outcome];
   document.getElementById('res-country').textContent =
@@ -1099,6 +1132,53 @@ function giveUpMap() {
   _highlightCorrectOnMap(c.iso2, 'target');
   _showMapToast('📍 ' + (c.names[state.lang] || c.names.en));
   setTimeout(() => { showResult('failed', c); goHome(); }, 1800);
+}
+
+// ══════════════════════════════════════════════════════════
+//  HISTORY
+// ══════════════════════════════════════════════════════════
+function loadHistory() {
+  try { return JSON.parse(localStorage.getItem('geo_history') || '[]'); } catch(e) { return []; }
+}
+function saveHistory(arr) {
+  try { localStorage.setItem('geo_history', JSON.stringify(arr.slice(-200))); } catch(e) {}
+}
+function addToHistory(type, country, outcome) {
+  const arr = loadHistory();
+  arr.push({ type, flag: country.flag, names: country.names, outcome, ts: Date.now() });
+  saveHistory(arr);
+}
+function openHistory() {
+  const l = state.lang;
+  document.getElementById('hist-title').textContent = T('history_title');
+  const list = document.getElementById('hist-list');
+  const arr = loadHistory().slice().reverse();
+  if (!arr.length) {
+    list.innerHTML = `<div style="text-align:center;color:var(--hint);padding:40px 16px">${T('history_empty')}</div>`;
+  } else {
+    const typeIcon = T('hist_type') || {};
+    list.innerHTML = arr.map(item => {
+      const icon = {correct:'✅', failed:'❌', timeout:'⏰'}[item.outcome] || '❓';
+      const name = (item.names && (item.names[l] || item.names.en)) || '?';
+      const ti = typeIcon[item.type] || '';
+      const d = new Date(item.ts);
+      const dateStr = d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+      return `<div class="hist-item ${item.outcome}">
+        <span class="hi">${icon}</span>
+        <span class="hf">${item.flag || ''}</span>
+        <span class="hn">${name}</span>
+        <span class="ht">${ti}</span>
+        <span class="hd">${dateStr}</span>
+      </div>`;
+    }).join('');
+    const clearLbl = l==='uz'?'Tarixni tozalash':l==='ru'?'Очистить историю':'Clear history';
+    list.innerHTML += `<button class="hist-clear-btn" onclick="clearHistory()">${clearLbl}</button>`;
+  }
+  showScreen('history');
+}
+function clearHistory() {
+  localStorage.removeItem('geo_history');
+  openHistory();
 }
 
 // ══════════════════════════════════════════════════════════
