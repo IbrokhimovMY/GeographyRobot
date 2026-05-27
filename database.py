@@ -190,9 +190,14 @@ def get_top_users(limit: int = 10) -> list:
     with sqlite3.connect(DB_PATH) as conn:
         rows = conn.execute(
             '''SELECT COALESCE(NULLIF(display_name,""), NULLIF(username,""), user_id),
-                      correct_country, correct_capital,
-                      correct_country + correct_capital AS total
-               FROM users ORDER BY total DESC LIMIT ?''',
+                      correct_country + correct_capital AS total_correct,
+                      correct_country + wrong_country + correct_capital + wrong_capital + timeout_capital AS total_games
+               FROM users
+               WHERE correct_country + wrong_country + correct_capital + wrong_capital + timeout_capital > 0
+               ORDER BY CAST(correct_country + correct_capital AS REAL) /
+                        (correct_country + wrong_country + correct_capital + wrong_capital + timeout_capital) DESC,
+                        correct_country + correct_capital DESC
+               LIMIT ?''',
             (limit,),
         ).fetchall()
-    return rows
+    return rows  # (name, total_correct, total_games)

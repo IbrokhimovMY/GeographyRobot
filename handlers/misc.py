@@ -45,19 +45,22 @@ async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     name = _player_name(update)
     s = get_stats(user_id, username)
 
-    total_country = s['correct_country'] + s['wrong_country']
-    total_capital = s['correct_capital'] + s['wrong_capital'] + s['timeout_capital']
-    country_pct = round(s['correct_country'] / total_country * 100) if total_country else 0
-    capital_pct = round(s['correct_capital'] / total_capital * 100) if total_capital else 0
+    total_correct = s['correct_country'] + s['correct_capital']
+    total_wrong   = s['wrong_country'] + s['wrong_capital']
+    total_timeout = s['timeout_capital']
+    total = total_correct + total_wrong + total_timeout
+
+    correct_pct = round(total_correct / total * 100) if total else 0
+    wrong_pct   = round(total_wrong   / total * 100) if total else 0
+    timeout_pct = round(total_timeout / total * 100) if total else 0
 
     text = (
-        t(lang, 'stats_header', name=html.escape(name))
-        + t(lang, 'stats_country',
-            correct=s['correct_country'], wrong=s['wrong_country'], pct=country_pct)
-        + t(lang, 'stats_capital',
-            correct=s['correct_capital'], wrong=s['wrong_capital'],
-            timeout=s['timeout_capital'], pct=capital_pct)
-        + t(lang, 'stats_streak', streak=s['streak'], best=s['best_streak'])
+        t(lang, 'stats_header',  name=html.escape(name))
+        + t(lang, 'stats_total',   total=total)
+        + t(lang, 'stats_correct', correct=total_correct, pct=correct_pct)
+        + t(lang, 'stats_wrong',   wrong=total_wrong,     wpct=wrong_pct)
+        + t(lang, 'stats_timeout', timeout=total_timeout, tpct=timeout_pct)
+        + t(lang, 'stats_streak',  streak=s['streak'],    best=s['best_streak'])
     )
     await update.message.reply_text(text, parse_mode='HTML', reply_markup=default_kb(lang))
 
@@ -71,11 +74,12 @@ async def top(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     medals = ['🥇', '🥈', '🥉']
     lines = [t(lang, 'top_header')]
-    for i, (name, cc, cap, total) in enumerate(rows, 1):
+    for i, (name, total_correct, total_games) in enumerate(rows, 1):
         medal = medals[i - 1] if i <= 3 else f"{i}."
+        pct = round(total_correct / total_games * 100) if total_games else 0
         lines.append(t(lang, 'top_entry',
                        medal=medal, name=html.escape(str(name)),
-                       total=total, cc=cc, cap=cap))
+                       pct=pct, correct=total_correct, total=total_games))
 
     await update.message.reply_text('\n'.join(lines), parse_mode='HTML', reply_markup=default_kb(lang))
 
