@@ -93,6 +93,7 @@ async def handle_leaderboard(_: web.Request) -> web.Response:
 async def handle_static(request: web.Request) -> web.Response:
     """Serve webapp/ static files."""
     path = request.match_info.get("path", "index.html") or "index.html"
+    file_path = (WEBAPP_DIR / path).resolve()
     if not str(file_path).startswith(str(WEBAPP_DIR.resolve())):
         raise web.HTTPForbidden()
     if not file_path.exists() or not file_path.is_file():
