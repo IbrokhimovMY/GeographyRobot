@@ -752,69 +752,32 @@ function giveUp() {
 }
 
 // ══════════════════════════════════════════════════════════
-//  HINTS
+//  HINTS  (one hint per game, no Wikipedia to avoid spoilers)
 // ══════════════════════════════════════════════════════════
-async function showNextHint() {
+function showNextHint() {
   if (!state.game) return;
   const g = state.game;
-  const l = state.lang;
   const btn = document.getElementById('hint-btn');
 
-  // Build wiki hints on demand
-  if (!g.hintsFetched) {
-    g.hintsFetched = true;
-    btn.textContent = T('loading_hint');
-    btn.disabled = true;
-    try {
-      const wikiLang = state.lang === 'ru' ? 'ru' : state.lang === 'uz' ? 'uz' : 'en';
-      const wikiName = g.country.names[wikiLang] || g.country.names.en;
-      let title = encodeURIComponent(wikiName.replace(/ /g,'_'));
-      let resp = await fetch(`https://${wikiLang}.wikipedia.org/api/rest_v1/page/summary/${title}`);
-      if (!resp.ok && wikiLang !== 'en') {
-        title = encodeURIComponent(g.country.names.en.replace(/ /g,'_'));
-        resp = await fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${title}`);
-      }
-      if (resp.ok) {
-        const data = await resp.json();
-        const extract = (data.extract || '').split('. ').filter(s => s.length > 20);
-        g.wikiSentences = extract.slice(0, 4).map(s => s + (s.endsWith('.') ? '' : '.'));
-      }
-    } catch(e) {}
-    // Append wiki sentences to hints list
-    g.wikiSentences.forEach((s,i) => g.hints.push({label: T('hint_wiki') + ` ${i+1}`, text: s}));
-    // Append continent, flag, capital as fallback hints
-    const cl = Object.values({africa:'Africa',asia:'Asia',europe:'Europe',
-      north_america:'N. America',south_america:'S. America',oceania:'Oceania'
-    })[Object.keys({africa:0,asia:1,europe:2,north_america:3,south_america:4,oceania:5})[g.country.continent]] || g.country.continent;
-    g.hints.push({label: T('hint_continent'), text: cl || g.country.continent});
-    if (g.type !== 'flag')
-      g.hints.push({label: T('hint_flag_hint'), text: g.country.flag});
-    if (g.type !== 'capital')
-      g.hints.push({label: T('hint_capital_hint'), text: g.country.capital});
-    btn.textContent = '💡 Hint';
-    btn.disabled = false;
-  }
-
-  // Show next hint
-  const idx = g.shownHints;
-  if (idx >= g.hints.length) {
+  // Only one hint allowed
+  if (g.shownHints > 0) {
     btn.textContent = T('hint_exhausted');
     btn.disabled = true;
     return;
   }
-  g.shownHints++;
-  const h = g.hints[idx];
+
+  const h = g.hints[0];
+  if (!h) { btn.disabled = true; return; }
+
+  g.shownHints = 1;
   const sec = document.getElementById('hints-section');
   const div = document.createElement('div');
   div.className = 'hint-item';
   div.innerHTML = `<div class="hi-label">${h.label}</div>${h.text}`;
   sec.appendChild(div);
   sec.scrollIntoView({behavior:'smooth', block:'nearest'});
-
-  if (g.shownHints >= g.hints.length) {
-    btn.textContent = T('hint_exhausted');
-    btn.disabled = true;
-  }
+  btn.textContent = T('hint_exhausted');
+  btn.disabled = true;
 }
 
 // ══════════════════════════════════════════════════════════
@@ -988,10 +951,27 @@ async function renderMap(target) {
   svg.selectAll('path')
     .data(countries.features)
     .enter().append('path')
-    .attr('class', d => 'country-path' + (d.id == targetNum ? ' target' : ''))
+    .attr('class', 'country-path')
     .attr('d', path)
     .attr('data-num', d => d.id)
     .on('click', function(event, d) { onMapClick(d.id, this); });
+}
+
+function _highlightCorrectOnMap(iso2, className) {
+  const num = ISO2_NUM[iso2];
+  if (!num) return;
+  const el = document.querySelector(`[data-num="${num}"]`);
+  if (el) { el.classList.add(className); el.scrollIntoView({behavior:'smooth', block:'nearest'}); }
+}
+
+function _showMapToast(msg) {
+  const t = document.createElement('div');
+  t.style.cssText = 'position:fixed;top:40%;left:50%;transform:translateX(-50%);' +
+    'background:rgba(0,0,0,.85);color:#fff;padding:14px 28px;border-radius:16px;' +
+    'font-size:22px;z-index:300;text-align:center;animation:fadeIn .2s';
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 1800);
 }
 
 function onMapClick(numId, el) {
@@ -999,16 +979,17 @@ function onMapClick(numId, el) {
   const iso2 = NUM_ISO2[numId];
   if (!iso2) return;
   const correct = _mapGame.country;
+
   if (iso2 === correct.iso2) {
     clearInterval(_mapGame.timerInterval);
     el.classList.add('correct-flash');
-    const l = state.lang;
     record_result_map('country', 'correct', correct.key);
     state.session.correct++;
     state.session.streak++;
     if (state.session.streak > state.session.best) state.session.best = state.session.streak;
     updateSessionStats();
-    setTimeout(() => { _mapGame = null; showResult('correct', correct); goHome(); }, 700);
+    _showMapToast('🎉 ' + (correct.names[state.lang] || correct.names.en) + '!');
+    setTimeout(() => { _mapGame = null; showResult('correct', correct); }, 1800);
   } else {
     el.classList.add('wrong-flash');
     setTimeout(() => el.classList.remove('wrong-flash'), 600);
@@ -1016,11 +997,13 @@ function onMapClick(numId, el) {
     renderMapAttempts();
     if (_mapGame.attempts >= MAX_ATTEMPTS) {
       clearInterval(_mapGame.timerInterval);
+      const save = _mapGame.country;
       _mapGame = null;
       state.session.streak = 0;
       updateSessionStats();
-      showResult('failed', correct);
-      goHome();
+      _highlightCorrectOnMap(save.iso2, 'target');
+      _showMapToast('📍 ' + (save.names[state.lang] || save.names.en));
+      setTimeout(() => { showResult('failed', save); }, 1800);
     }
   }
 }
@@ -1059,8 +1042,9 @@ function startMapTimer() {
       _mapGame = null;
       state.session.streak = 0;
       updateSessionStats();
-      showResult('timeout', c);
-      goHome();
+      _highlightCorrectOnMap(c.iso2, 'target');
+      _showMapToast('📍 ' + (c.names[state.lang] || c.names.en));
+      setTimeout(() => showResult('timeout', c), 1800);
     }
   }, 200);
 }
@@ -1072,8 +1056,9 @@ function giveUpMap() {
   _mapGame = null;
   state.session.streak = 0;
   updateSessionStats();
-  showResult('failed', c);
-  goHome();
+  _highlightCorrectOnMap(c.iso2, 'target');
+  _showMapToast('📍 ' + (c.names[state.lang] || c.names.en));
+  setTimeout(() => { showResult('failed', c); goHome(); }, 1800);
 }
 
 // ══════════════════════════════════════════════════════════
