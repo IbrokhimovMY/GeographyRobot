@@ -500,7 +500,7 @@ function updateSessionStats() {
   document.getElementById('stat-correct-pct').textContent = total ? cpct + '%' : '';
   document.getElementById('stat-wrong-pct').textContent   = total ? wpct + '%' : '';
   document.getElementById('stat-streak-row').textContent  = '🔥' + s.streak + ' | 🏅' + s.best;
-  saveStats();
+  // saveStats() is NOT called here — only called after server confirms values
 }
 
 // ══════════════════════════════════════════════════════════
@@ -925,7 +925,11 @@ function goHome() {
 // ══════════════════════════════════════════════════════════
 function sendResult(gameType, result, countryKey) {
   const uid = tg?.initDataUnsafe?.user?.id;
-  if (!uid) return;
+  if (!uid) {
+    // No server — save the local optimistic increment so at least this device keeps it
+    saveStats();
+    return;
+  }
   const gt = ['country','capital'].includes(gameType) ? gameType : 'country';
   fetch('/api/result', {
     method: 'POST',
@@ -941,15 +945,16 @@ function sendResult(gameType, result, countryKey) {
   })
   .then(r => r.json())
   .then(d => {
-    if (!d.ok) return;
-    // Server is the single source of truth — sync local state
+    if (!d.ok) { saveStats(); return; }
+    // Server confirmed — overwrite local state with authoritative DB values
     if (typeof d.correct     === 'number') state.session.correct = d.correct;
     if (typeof d.wrong       === 'number') state.session.wrong   = d.wrong;
     if (typeof d.streak      === 'number') state.session.streak  = d.streak;
     if (typeof d.best_streak === 'number') state.session.best    = d.best_streak;
     updateSessionStats();
+    saveStats();  // cache server values so they appear immediately on next open
   })
-  .catch(() => {});
+  .catch(() => { saveStats(); });  // network error — save local increment as fallback
 }
 
 // ══════════════════════════════════════════════════════════
@@ -1134,17 +1139,17 @@ function giveUpMap() {
 //  PERSISTENT STATS
 // ══════════════════════════════════════════════════════════
 function loadPersistentStats() {
-  // Load from localStorage first (works offline and survives redeploys)
+  // Show cached server values immediately while the real fetch loads
   try {
     const saved = JSON.parse(localStorage.getItem('geo_stats') || '{}');
-    if ((saved.correct || 0) > 0) state.session.correct = saved.correct;
-    if ((saved.wrong || 0) > 0) state.session.wrong = saved.wrong;
-    if ((saved.best || 0) > 0) state.session.best = saved.best;
-    if ((saved.streak || 0) > 0) state.session.streak = saved.streak;
+    state.session.correct = saved.correct || 0;
+    state.session.wrong   = saved.wrong   || 0;
+    state.session.streak  = saved.streak  || 0;
+    state.session.best    = saved.best    || 0;
     updateSessionStats();
   } catch(e) {}
 
-  // Fetch from server — always authoritative when user is identified
+  // Always fetch from server — server DB is the single source of truth across all devices
   const uid = tg?.initDataUnsafe?.user?.id;
   if (!uid) return;
   fetch(`/api/stats?user_id=${uid}`)
@@ -1152,11 +1157,13 @@ function loadPersistentStats() {
     .then(d => {
       const correct = (d.correct_country || 0) + (d.correct_capital || 0);
       const wrong   = (d.wrong_country  || 0) + (d.wrong_capital  || 0) + (d.timeout_capital || 0);
+      // Always use server values — overrides any stale localStorage from other devices
       state.session.correct = correct;
       state.session.wrong   = wrong;
       state.session.streak  = d.streak      || 0;
       state.session.best    = d.best_streak || 0;
       updateSessionStats();
+      saveStats();  // update cache with authoritative server values
     }).catch(()=>{});
 }
 
