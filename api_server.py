@@ -53,10 +53,8 @@ async def handle_result(request: web.Request) -> web.Response:
     if not user_id:
         return web.json_response({"ok": False, "error": "missing user_id"}, status=400)
 
-    # Validate Telegram signature in production; skip in dev if BOT_TOKEN ends with _dev
     if not BOT_TOKEN.endswith("_dev") and not _validate_init_data(init_data):
         logger.warning("Invalid initData from user %s", user_id)
-        # Still record — signature failure could be a false positive in some environments
 
     if game_type not in ("country", "capital"):
         game_type = "country"
@@ -67,13 +65,27 @@ async def handle_result(request: web.Request) -> web.Response:
         record_result(user_id, username, game_type, "correct")
         streak, is_best = increment_streak(user_id, username)
     else:
-        record_result(user_id, username, game_type, result if result != "timeout" else "wrong")
-        if game_type == "capital" and result == "timeout":
+        # Capital timeout is its own column; everything else is wrong
+        if result == "timeout" and game_type == "capital":
             record_result(user_id, username, "capital", "timeout")
+        else:
+            record_result(user_id, username, game_type, "wrong")
         reset_streak(user_id, username)
         streak, is_best = 0, False
 
-    return web.json_response({"ok": True, "streak": streak, "is_best": is_best})
+    # Return updated stats so the mini app can sync immediately
+    s = get_stats(user_id, username)
+    total_correct = s['correct_country'] + s['correct_capital']
+    total_wrong   = s['wrong_country']   + s['wrong_capital'] + s['timeout_capital']
+    return web.json_response({
+        "ok": True,
+        "streak": streak,
+        "is_best": is_best,
+        "correct": total_correct,
+        "wrong": total_wrong,
+        "total": total_correct + total_wrong,
+        "best_streak": s['best_streak'],
+    })
 
 
 async def handle_stats(request: web.Request) -> web.Response:

@@ -923,25 +923,33 @@ function goHome() {
 // ══════════════════════════════════════════════════════════
 //  SEND RESULT TO BOT
 // ══════════════════════════════════════════════════════════
-const _pendingResults = [];
-
 function sendResult(gameType, result, countryKey) {
-  _pendingResults.push({game: gameType, result, country: countryKey});
-  // Try to post to API if available
   const uid = tg?.initDataUnsafe?.user?.id;
   if (!uid) return;
+  const gt = ['country','capital'].includes(gameType) ? gameType : 'country';
   fetch('/api/result', {
     method: 'POST',
     headers: {'Content-Type':'application/json'},
     body: JSON.stringify({
       user_id: String(uid),
       username: tg?.initDataUnsafe?.user?.username || '',
-      game_type: gameType === 'challenge' ? 'country' : gameType,
+      game_type: gt,
       result,
       country_uz: countryKey,
       init_data: tg?.initData || '',
     }),
-  }).catch(() => {});
+  })
+  .then(r => r.json())
+  .then(d => {
+    if (!d.ok) return;
+    // Server is the single source of truth — sync local state
+    if (typeof d.correct     === 'number') state.session.correct = d.correct;
+    if (typeof d.wrong       === 'number') state.session.wrong   = d.wrong;
+    if (typeof d.streak      === 'number') state.session.streak  = d.streak;
+    if (typeof d.best_streak === 'number') state.session.best    = d.best_streak;
+    updateSessionStats();
+  })
+  .catch(() => {});
 }
 
 // ══════════════════════════════════════════════════════════
@@ -1136,15 +1144,18 @@ function loadPersistentStats() {
     updateSessionStats();
   } catch(e) {}
 
-  // Then sync with API if user is identified
+  // Fetch from server — always authoritative when user is identified
   const uid = tg?.initDataUnsafe?.user?.id;
   if (!uid) return;
   fetch(`/api/stats?user_id=${uid}`)
     .then(r => r.json())
     .then(d => {
-      const total = (d.correct_countries || 0) + (d.correct_capitals || 0);
-      if (total > state.session.correct) state.session.correct = total;
-      if ((d.best_streak || 0) > state.session.best) state.session.best = d.best_streak || 0;
+      const correct = (d.correct_country || 0) + (d.correct_capital || 0);
+      const wrong   = (d.wrong_country  || 0) + (d.wrong_capital  || 0) + (d.timeout_capital || 0);
+      state.session.correct = correct;
+      state.session.wrong   = wrong;
+      state.session.streak  = d.streak      || 0;
+      state.session.best    = d.best_streak || 0;
       updateSessionStats();
     }).catch(()=>{});
 }
