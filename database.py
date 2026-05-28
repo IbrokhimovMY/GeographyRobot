@@ -6,11 +6,22 @@ from config import DB_PATH, SUPPORTED_LANGS
 
 logger = logging.getLogger(__name__)
 
-DATABASE_URL = os.getenv('DATABASE_URL', '')
-# Railway (and Heroku) gives postgres:// but psycopg2 requires postgresql://
+# Railway may use DATABASE_URL or POSTGRES_URL or DATABASE_PUBLIC_URL
+DATABASE_URL = (
+    os.getenv('DATABASE_URL') or
+    os.getenv('POSTGRES_URL') or
+    os.getenv('DATABASE_PUBLIC_URL') or
+    ''
+)
+# Railway/Heroku give postgres:// but psycopg2 requires postgresql://
 if DATABASE_URL.startswith('postgres://'):
     DATABASE_URL = DATABASE_URL.replace('postgres://', 'postgresql://', 1)
 USE_PG = bool(DATABASE_URL)
+
+# Log which DB mode and which env var was found (helps diagnose Railway issues)
+_all_pg_vars = {k: v[:30]+'...' for k, v in os.environ.items()
+                if k in ('DATABASE_URL', 'POSTGRES_URL', 'DATABASE_PUBLIC_URL') and v}
+logging.getLogger(__name__).debug("PG env vars found: %s  USE_PG=%s", _all_pg_vars, USE_PG)
 
 if USE_PG:
     import psycopg2
@@ -101,7 +112,8 @@ def init_db() -> None:
                     conn.execute(f'ALTER TABLE users ADD COLUMN {col} {definition}')
                 except sqlite3.OperationalError:
                     pass
-    logger.info("Database ready (%s).", "PostgreSQL" if USE_PG else "SQLite")
+    logger.info("Database ready (%s). DATABASE_URL set=%s",
+                "PostgreSQL" if USE_PG else "SQLite", bool(DATABASE_URL))
 
 
 def _ensure_user(conn, user_id: str, username: str) -> None:
