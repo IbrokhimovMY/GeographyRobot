@@ -21,7 +21,7 @@ USE_PG = bool(DATABASE_URL)
 # Log which DB mode and which env var was found (helps diagnose Railway issues)
 _all_pg_vars = {k: v[:30]+'...' for k, v in os.environ.items()
                 if k in ('DATABASE_URL', 'POSTGRES_URL', 'DATABASE_PUBLIC_URL') and v}
-logging.getLogger(__name__).debug("PG env vars found: %s  USE_PG=%s", _all_pg_vars, USE_PG)
+logging.getLogger(__name__).info("PG env vars found: %s  USE_PG=%s", _all_pg_vars, USE_PG)
 
 if USE_PG:
     import psycopg2
