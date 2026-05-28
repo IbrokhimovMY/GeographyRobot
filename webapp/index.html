@@ -1152,8 +1152,9 @@ function loadPersistentStats() {
 // ══════════════════════════════════════════════════════════
 //  INIT
 // ══════════════════════════════════════════════════════════
-renderHome();
+// Load saved stats FIRST so renderHome() displays real numbers, not zeros
 loadPersistentStats();
+renderHome();
 </script>
 </body>
 </html>

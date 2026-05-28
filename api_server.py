@@ -86,7 +86,8 @@ async def handle_stats(request: web.Request) -> web.Response:
 
 async def handle_leaderboard(_: web.Request) -> web.Response:
     rows = get_top_users(10)
-    result = [{"name": r[0], "cc": r[1], "cap": r[2], "total": r[3]} for r in rows]
+    result = [{"name": r[0], "correct": r[1], "total": r[2],
+               "pct": round(r[1] / r[2] * 100) if r[2] else 0} for r in rows]
     return web.json_response(result)
 
 
