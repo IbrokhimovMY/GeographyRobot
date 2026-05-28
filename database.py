@@ -7,6 +7,9 @@ from config import DB_PATH, SUPPORTED_LANGS
 logger = logging.getLogger(__name__)
 
 DATABASE_URL = os.getenv('DATABASE_URL', '')
+# Railway (and Heroku) gives postgres:// but psycopg2 requires postgresql://
+if DATABASE_URL.startswith('postgres://'):
+    DATABASE_URL = DATABASE_URL.replace('postgres://', 'postgresql://', 1)
 USE_PG = bool(DATABASE_URL)
 
 if USE_PG:
