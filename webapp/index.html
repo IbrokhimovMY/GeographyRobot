@@ -150,7 +150,7 @@ button{cursor:pointer;border:none;outline:none;font-family:inherit}
   <div class="lang-row">
     <button class="lang-btn" data-lang="uz" onclick="setLang('uz')">🇺🇿 UZ</button>
     <button class="lang-btn" data-lang="ru" onclick="setLang('ru')">🇷🇺 RU</button>
-    <button class="lang-btn active" data-lang="en" onclick="setLang('en')">🇬🇧 EN</button>
+    <button class="lang-btn" data-lang="en" onclick="setLang('en')">🇬🇧 EN</button>
   </div>
 
   <div class="games-grid">
@@ -1172,7 +1172,7 @@ function loadPersistentStats() {
 // ══════════════════════════════════════════════════════════
 // Load saved stats FIRST so renderHome() displays real numbers, not zeros
 loadPersistentStats();
-renderHome();
+setLang(state.lang);  // sets correct active button and calls renderHome()
 </script>
 </body>
 </html>
