@@ -102,6 +102,11 @@ button{cursor:pointer;border:none;outline:none;font-family:inherit}
 .hints-section{margin-bottom:14px}
 .hint-item{background:var(--bg2);border-radius:8px;padding:10px 12px;margin-bottom:6px;font-size:13px;line-height:1.5;animation:fadeIn .3s}
 .hint-item .hi-label{font-size:11px;color:var(--link);font-weight:600;margin-bottom:3px}
+.top-item{display:flex;align-items:center;gap:10px;padding:12px 14px;border-radius:10px;margin-bottom:8px;background:var(--bg2)}
+.top-rank{font-size:22px;min-width:34px;text-align:center}
+.top-name{flex:1;font-weight:600;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.top-pct{font-size:18px;font-weight:700;color:#4caf50}
+.top-sub{font-size:11px;color:var(--hint);text-align:right}
 @keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
 
 /* ── result overlay ──────────────────────────────────────── */
@@ -209,7 +214,21 @@ button{cursor:pointer;border:none;outline:none;font-family:inherit}
       </div>
     </div>
     <div style="margin-top:6px;text-align:center;font-size:12px;color:var(--hint)" id="stat-streak-row">🔥0 | 🏅0</div>
+    <div style="margin-top:10px">
+      <button class="btn" id="btn-top-mini" onclick="openTop()" style="width:100%;padding:10px;font-size:14px">🏆 Top</button>
+    </div>
   </div>
+</div>
+
+<!-- ═══════════════════════════ TOP ════════════════════════════ -->
+<div id="screen-top" class="screen">
+  <div class="game-header">
+    <button class="back-btn" onclick="goHome()">←</button>
+    <div>
+      <div class="game-title" id="top-screen-title">Top Players</div>
+    </div>
+  </div>
+  <div id="top-list" style="padding:12px;overflow-y:auto;flex:1"></div>
 </div>
 
 <!-- ═══════════════════════════ GAME ═══════════════════════════ -->
@@ -341,6 +360,8 @@ const I18N = {
     picker_region:'Select Region', picker_diff:'Select Difficulty',
     streak_msg:' in a row! 🔥', best_msg:'New record: ',
     lbl_total:'Games', lbl_wrong:'Wrong',
+    btn_top_mini:'🏆 Top', top_title:'Top Players', top_empty:'No players yet.',
+    top_loading:'Loading…', top_you:'(you)',
   },
   uz: {
     home_sub:'Dunyo geografiyasini sinab ko\'ring',
@@ -371,6 +392,8 @@ const I18N = {
     picker_region:'Hududni tanlang', picker_diff:'Darajani tanlang',
     streak_msg:' ta ketma-ket! 🔥', best_msg:'Yangi rekord: ',
     lbl_total:"Jami o'yin", lbl_wrong:"Noto'g'ri",
+    btn_top_mini:"🏆 Top", top_title:"Top o'yinchilar", top_empty:"Hali hech kim o'ynamagan.",
+    top_loading:'Yuklanmoqda…', top_you:'(siz)',
   },
   ru: {
     home_sub:'Проверьте знания географии',
@@ -401,6 +424,8 @@ const I18N = {
     picker_region:'Выберите регион', picker_diff:'Выберите сложность',
     streak_msg:' подряд! 🔥', best_msg:'Новый рекорд: ',
     lbl_total:'Игр', lbl_wrong:'Неверно',
+    btn_top_mini:'🏆 Топ', top_title:'Топ игроков', top_empty:'Пока нет игроков.',
+    top_loading:'Загрузка…', top_you:'(вы)',
   },
 };
 
@@ -480,6 +505,7 @@ function renderHome() {
   document.getElementById('lbl-correct').textContent = s.lbl_correct;
   document.getElementById('lbl-total').textContent   = s.lbl_total;
   document.getElementById('lbl-wrong').textContent   = s.lbl_wrong;
+  document.getElementById('btn-top-mini').textContent = s.btn_top_mini;
   document.getElementById('val-region').textContent  = s.region_labels[state.region] + ' ›';
   document.getElementById('val-difficulty').textContent = s.diff_labels[state.difficulty] + ' ›';
   updateSessionStats();
@@ -918,6 +944,43 @@ function goHome() {
   document.getElementById('result-overlay').classList.remove('active');
   renderHome();
   showScreen('home');
+}
+
+function openTop() {
+  const l = state.lang;
+  document.getElementById('top-screen-title').textContent = T('top_title');
+  const list = document.getElementById('top-list');
+  list.innerHTML = `<div style="text-align:center;color:var(--hint);padding:30px">${T('top_loading')}</div>`;
+  showScreen('top');
+
+  const myId = String(tg?.initDataUnsafe?.user?.id || '');
+  const myName = tg?.initDataUnsafe?.user?.username || tg?.initDataUnsafe?.user?.first_name || '';
+
+  fetch('/api/leaderboard')
+    .then(r => r.json())
+    .then(data => {
+      if (!data.length) {
+        list.innerHTML = `<div style="text-align:center;color:var(--hint);padding:40px">${T('top_empty')}</div>`;
+        return;
+      }
+      const medals = ['🥇','🥈','🥉'];
+      list.innerHTML = data.map((p, i) => {
+        const medal = i < 3 ? medals[i] : `<span style="font-size:15px;font-weight:700">${i+1}.</span>`;
+        const isMe = myName && p.name && p.name.toLowerCase() === myName.toLowerCase();
+        const youLabel = isMe ? ` <span style="color:var(--hint);font-size:11px">${T('top_you')}</span>` : '';
+        return `<div class="top-item" style="${isMe ? 'border:1px solid #4caf50' : ''}">
+          <span class="top-rank">${medal}</span>
+          <div style="flex:1;overflow:hidden">
+            <div class="top-name">${p.name || '?'}${youLabel}</div>
+            <div style="font-size:11px;color:var(--hint)">${p.correct}/${p.total} ${l==='uz'?'o\'yin':l==='ru'?'игр':'games'}</div>
+          </div>
+          <span class="top-pct">${p.pct}%</span>
+        </div>`;
+      }).join('');
+    })
+    .catch(() => {
+      list.innerHTML = `<div style="text-align:center;color:var(--hint);padding:40px">⚠️ Error loading</div>`;
+    });
 }
 
 // ══════════════════════════════════════════════════════════

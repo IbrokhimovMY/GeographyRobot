@@ -1,0 +1,87 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <defs>
+    <radialGradient id="bgGrad" cx="50%" cy="40%" r="60%">
+      <stop offset="0%" stop-color="#1a3a5c"/>
+      <stop offset="100%" stop-color="#0d1f33"/>
+    </radialGradient>
+    <radialGradient id="globeGrad" cx="38%" cy="32%" r="65%">
+      <stop offset="0%" stop-color="#2196F3"/>
+      <stop offset="60%" stop-color="#1565C0"/>
+      <stop offset="100%" stop-color="#0D47A1"/>
+    </radialGradient>
+    <radialGradient id="pinGrad" cx="40%" cy="35%" r="60%">
+      <stop offset="0%" stop-color="#FFE57F"/>
+      <stop offset="100%" stop-color="#F9A825"/>
+    </radialGradient>
+    <clipPath id="globeClip">
+      <circle cx="256" cy="218" r="162"/>
+    </clipPath>
+  </defs>
+
+  <!-- Background -->
+  <rect width="512" height="512" fill="url(#bgGrad)" rx="96"/>
+
+  <!-- Globe body -->
+  <circle cx="256" cy="218" r="162" fill="url(#globeGrad)"/>
+
+  <!-- Grid lines (clipped to globe) -->
+  <g clip-path="url(#globeClip)" fill="none" stroke="#64B5F6" stroke-width="1.8" opacity="0.35">
+    <!-- Equator -->
+    <line x1="94" y1="218" x2="418" y2="218"/>
+    <!-- Latitude lines -->
+    <ellipse cx="256" cy="218" rx="162" ry="54"/>
+    <ellipse cx="256" cy="218" rx="162" ry="116"/>
+    <!-- Prime meridian -->
+    <line x1="256" y1="56" x2="256" y2="380"/>
+    <!-- Longitude lines -->
+    <ellipse cx="256" cy="218" rx="76" ry="162"/>
+    <ellipse cx="256" cy="218" rx="136" ry="162"/>
+  </g>
+
+  <!-- Continents (simplified, clipped) -->
+  <g clip-path="url(#globeClip)" opacity="0.88">
+    <!-- Europe/Asia -->
+    <path d="M188 162 Q210 148 248 153 Q278 143 308 158 Q330 152 346 172
+             Q340 198 318 204 Q292 216 268 211 Q242 218 218 203
+             Q198 196 188 180 Z" fill="#2E7D32"/>
+    <!-- Americas -->
+    <path d="M144 178 Q162 167 180 175 Q192 190 188 210
+             Q178 226 160 224 Q144 214 140 198 Z" fill="#2E7D32"/>
+    <path d="M152 230 Q166 218 178 226 Q184 244 180 264
+             Q170 276 156 268 Q144 256 146 242 Z" fill="#388E3C"/>
+    <!-- Africa -->
+    <path d="M232 212 Q248 206 260 216 Q264 238 256 262
+             Q246 272 234 258 Q224 244 226 228 Z" fill="#2E7D32"/>
+    <!-- SE Asia -->
+    <path d="M300 200 Q314 194 328 202 Q336 216 328 230
+             Q316 238 304 230 Q296 218 298 208 Z" fill="#388E3C"/>
+    <!-- Australia -->
+    <path d="M320 260 Q336 252 348 260 Q354 274 346 284
+             Q334 290 322 282 Q314 270 316 262 Z" fill="#2E7D32"/>
+  </g>
+
+  <!-- Globe border -->
+  <circle cx="256" cy="218" r="162" fill="none" stroke="#64B5F6" stroke-width="2.5" opacity="0.5"/>
+
+  <!-- Location pin shadow -->
+  <ellipse cx="258" cy="224" rx="14" ry="5" fill="#000" opacity="0.25"/>
+
+  <!-- Location pin -->
+  <circle cx="256" cy="186" r="24" fill="url(#pinGrad)"/>
+  <circle cx="256" cy="186" r="11" fill="#0D47A1"/>
+  <path d="M242 205 Q256 232 270 205 Q262 210 256 215 Q250 210 242 205 Z" fill="url(#pinGrad)"/>
+
+  <!-- Text: GEOGRAPHY -->
+  <text x="256" y="434" text-anchor="middle"
+        font-family="'Arial Black', 'Arial', sans-serif"
+        font-size="48" font-weight="900" fill="#FFFFFF" letter-spacing="1"
+        style="text-shadow: 0 2px 8px rgba(0,0,0,0.5)">GEOGRAPHY</text>
+
+  <!-- Text: QUIZ BOT -->
+  <text x="256" y="482" text-anchor="middle"
+        font-family="'Arial', sans-serif"
+        font-size="28" font-weight="700" fill="#FFD54F" letter-spacing="6">QUIZ BOT</text>
+
+  <!-- Subtle bottom glow -->
+  <ellipse cx="256" cy="490" rx="180" ry="12" fill="#2196F3" opacity="0.12"/>
+</svg>
