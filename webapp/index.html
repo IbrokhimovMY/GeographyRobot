@@ -500,7 +500,7 @@ function updateSessionStats() {
   document.getElementById('stat-correct-pct').textContent = total ? cpct + '%' : '';
   document.getElementById('stat-wrong-pct').textContent   = total ? wpct + '%' : '';
   document.getElementById('stat-streak-row').textContent  = '🔥' + s.streak + ' | 🏅' + s.best;
-  // saveStats() is NOT called here — only called after server confirms values
+  saveStats();
 }
 
 // ══════════════════════════════════════════════════════════
@@ -945,16 +945,15 @@ function sendResult(gameType, result, countryKey) {
   })
   .then(r => r.json())
   .then(d => {
-    if (!d.ok) { saveStats(); return; }
-    // Server confirmed — overwrite local state with authoritative DB values
+    if (!d.ok) return;
+    // Server confirmed — use authoritative DB values (updateSessionStats saves them)
     if (typeof d.correct     === 'number') state.session.correct = d.correct;
     if (typeof d.wrong       === 'number') state.session.wrong   = d.wrong;
     if (typeof d.streak      === 'number') state.session.streak  = d.streak;
     if (typeof d.best_streak === 'number') state.session.best    = d.best_streak;
     updateSessionStats();
-    saveStats();  // cache server values so they appear immediately on next open
   })
-  .catch(() => { saveStats(); });  // network error — save local increment as fallback
+  .catch(() => {});
 }
 
 // ══════════════════════════════════════════════════════════
@@ -1157,13 +1156,16 @@ function loadPersistentStats() {
     .then(d => {
       const correct = (d.correct_country || 0) + (d.correct_capital || 0);
       const wrong   = (d.wrong_country  || 0) + (d.wrong_capital  || 0) + (d.timeout_capital || 0);
-      // Always use server values — overrides any stale localStorage from other devices
-      state.session.correct = correct;
-      state.session.wrong   = wrong;
-      state.session.streak  = d.streak      || 0;
-      state.session.best    = d.best_streak || 0;
-      updateSessionStats();
-      saveStats();  // update cache with authoritative server values
+      const serverTotal = correct + wrong;
+      if (serverTotal > 0) {
+        // Server has real data — use it (cross-device sync)
+        state.session.correct = correct;
+        state.session.wrong   = wrong;
+        state.session.streak  = d.streak      || 0;
+        state.session.best    = d.best_streak || 0;
+        updateSessionStats();  // also calls saveStats() internally
+      }
+      // Server is empty (new DB / after reset) — keep localStorage values, don't overwrite with 0
     }).catch(()=>{});
 }
 
