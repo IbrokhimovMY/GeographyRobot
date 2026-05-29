@@ -1,19 +1,17 @@
 """Game modes: country-from-hint, country-from-capital, flag game."""
 import html
 import random
-import sqlite3
 import logging
 
 from telegram import Update
 from telegram.ext import ContextTypes
 
-from config import DB_PATH
 from data import (
     COUNTRIES, COUNTRIES_CAPITALS, COUNTRY_CONTINENTS,
     COUNTRY_FLAGS, COUNTRY_HINTS_UZ,
 )
 from database import (
-    get_user_lang, get_display_name, _ensure_user,
+    get_user_lang, get_display_name,
     get_difficulty, get_continent_filter,
 )
 from keyboards import default_kb, guess_kb, map_kb
@@ -135,9 +133,6 @@ async def get_country(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     country_uz = random.choice(available)
     used.add(country_uz)
 
-    with sqlite3.connect(DB_PATH) as conn:
-        _ensure_user(conn, user_id, _uname(update))
-
     timeout_sec = _COUNTRY_TIME.get(difficulty, 90)
     job = context.job_queue.run_once(
         callback=timeout_country_guess,
@@ -211,9 +206,6 @@ async def get_capital(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     country_uz = random.choice(available)
     used.add(country_uz)
     capital = COUNTRIES_CAPITALS[country_uz]
-
-    with sqlite3.connect(DB_PATH) as conn:
-        _ensure_user(conn, user_id, _uname(update))
 
     job = context.job_queue.run_once(
         callback=timeout_capital_guess,

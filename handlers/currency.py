@@ -9,14 +9,13 @@ from data import COUNTRIES, COUNTRY_CURRENCIES, COUNTRY_CONTINENTS
 from database import get_user_lang, get_difficulty, get_continent_filter
 from keyboards import default_kb, guess_kb
 from state import (
-    active_country_games, active_capital_games, active_flag_games,
-    cancel_capital_job, cancel_country_job, cancel_flag_job, new_hint_data,
+    active_country_games, active_capital_games, active_flag_games, active_currency_games,
+    cancel_capital_job, cancel_country_job, cancel_flag_job, cancel_currency_job, new_hint_data,
 )
 from translations import t, get_country_name
 
 logger = logging.getLogger(__name__)
 
-active_currency_games: dict = {}
 _CURRENCY_TIME = {'easy': 120, 'normal': 90, 'hard': 60}
 
 
