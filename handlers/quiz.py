@@ -24,9 +24,11 @@ from geo_facts import MOUNTAIN_FACTS, RIVER_FACTS, LAKE_FACTS, GEO_RECORDS
 
 logger = logging.getLogger(__name__)
 
-QUIZ_SIZE      = 20
-VARIANT_SECS   = 15   # seconds per variant question
-TEXT_SECS      = 15   # seconds per text question
+QUIZ_SIZE = 20
+
+# seconds per question for each difficulty level
+_DIFF_SECS = {'easy': 25, 'med': 15, 'hard': 10}
+_DEFAULT_SECS = 15
 
 # chat_id → state
 active_variant_quizzes: dict = {}
@@ -376,39 +378,67 @@ def _quiz_i18n(lang: str, key: str, **kw) -> str:
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-#  MODE SELECTION — shown before any quiz type
+#  DIFFICULTY SELECTION — shown before both quiz types
 # ──────────────────────────────────────────────────────────────────────────────
 
-_MODE_TEXT = {
-    'uz': "Qaysi turdagi viktorina o'ynamoqchisiz?",
-    'ru': "Какой тип викторины выбираете?",
-    'en': "Which quiz type would you like to play?",
+_DIFF_ASK = {
+    'uz': "Darajani tanlang:",
+    'ru': "Выберите уровень сложности:",
+    'en': "Select difficulty level:",
 }
-_MODE_GEO  = {'uz': "🌍 Geografiya", 'ru': "🌍 География", 'en': "🌍 Geography"}
-_MODE_TEST = {'uz': "📚 Test savollari", 'ru': "📚 Тестовые вопросы", 'en': "📚 Custom Test"}
+_DIFF_LABELS = {
+    'uz': {'easy': f"🟢 Oson ({_DIFF_SECS['easy']}s)", 'med': f"🟡 O'rta ({_DIFF_SECS['med']}s)", 'hard': f"🔴 Qiyin ({_DIFF_SECS['hard']}s)"},
+    'ru': {'easy': f"🟢 Лёгкий ({_DIFF_SECS['easy']}с)", 'med': f"🟡 Средний ({_DIFF_SECS['med']}с)", 'hard': f"🔴 Сложный ({_DIFF_SECS['hard']}с)"},
+    'en': {'easy': f"🟢 Easy ({_DIFF_SECS['easy']}s)", 'med': f"🟡 Medium ({_DIFF_SECS['med']}s)", 'hard': f"🔴 Hard ({_DIFF_SECS['hard']}s)"},
+}
 
 
-def _mode_kb(lang: str, qtype: str) -> IKM:
-    """qtype: 'v1' (variant) or 'v2' (text)"""
+def _v1_kb(lang: str) -> IKM:
+    """Quiz1 (variant): 6 buttons — 3 difficulties × 2 modes (geo/test)."""
+    dl = _DIFF_LABELS.get(lang, _DIFF_LABELS['en'])
+    geo  = {'uz': '🌍', 'ru': '🌍', 'en': '🌍'}.get(lang, '🌍')
+    test = {'uz': '📚', 'ru': '📚', 'en': '📚'}.get(lang, '📚')
+    return IKM([
+        [IKB(f"{geo} {dl['easy']}", callback_data="q1:geo:easy"),
+         IKB(f"{geo} {dl['med']}",  callback_data="q1:geo:med"),
+         IKB(f"{geo} {dl['hard']}", callback_data="q1:geo:hard")],
+        [IKB(f"{test} {dl['easy']}", callback_data="q1:test:easy"),
+         IKB(f"{test} {dl['med']}",  callback_data="q1:test:med"),
+         IKB(f"{test} {dl['hard']}", callback_data="q1:test:hard")],
+    ])
+
+
+def _v2_kb(lang: str) -> IKM:
+    """Quiz2 (text): 3 buttons — difficulties only."""
+    dl = _DIFF_LABELS.get(lang, _DIFF_LABELS['en'])
     return IKM([[
-        IKB(_MODE_GEO.get(lang, _MODE_GEO['en']),  callback_data=f"qmode:geo:{qtype}"),
-        IKB(_MODE_TEST.get(lang, _MODE_TEST['en']), callback_data=f"qmode:test:{qtype}"),
+        IKB(dl['easy'], callback_data="q2:easy"),
+        IKB(dl['med'],  callback_data="q2:med"),
+        IKB(dl['hard'], callback_data="q2:hard"),
     ]])
 
 
 async def start_variant_quiz(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     lang = get_user_lang(_uid(update))
     await update.message.reply_text(
-        _MODE_TEXT.get(lang, _MODE_TEXT['en']),
-        reply_markup=_mode_kb(lang, 'v1'),
+        _DIFF_ASK.get(lang, _DIFF_ASK['en']),
+        reply_markup=_v1_kb(lang),
     )
 
 
-async def _launch_geo_variant(chat_id: str, lang: str,
+async def start_text_quiz(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    lang = get_user_lang(_uid(update))
+    await update.message.reply_text(
+        _DIFF_ASK.get(lang, _DIFF_ASK['en']),
+        reply_markup=_v2_kb(lang),
+    )
+
+
+async def _launch_geo_variant(chat_id: str, lang: str, secs: int,
                                context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Actually start the geography variant quiz."""
-    from handlers.poll_quiz import active_poll_quizzes
-    if chat_id in active_variant_quizzes or chat_id in active_text_quizzes or chat_id in active_poll_quizzes:
+    from handlers.poll_quiz import active_poll_quizzes, active_custom_text_quizzes
+    if chat_id in active_variant_quizzes or chat_id in active_text_quizzes \
+            or chat_id in active_poll_quizzes or chat_id in active_custom_text_quizzes:
         await context.bot.send_message(chat_id=int(chat_id), text=_quiz_i18n(lang, 'already'))
         return
 
@@ -418,6 +448,7 @@ async def _launch_geo_variant(chat_id: str, lang: str,
         'scores': {}, 'answered': set(),
         'correct_idx': 0, 'correct_uz': '',
         'job': None, 'lang': lang, 'msg_id': None,
+        'timeout_secs': secs,
     }
     await context.bot.send_message(chat_id=int(chat_id),
                                    text=_quiz_i18n(lang, 'variant_start'),
@@ -460,11 +491,12 @@ async def _send_variant_q(context: ContextTypes.DEFAULT_TYPE, chat_id: str) -> N
     if quiz.get('job'):
         try: quiz['job'].schedule_removal()
         except Exception: pass
+    secs = quiz.get('timeout_secs', _DEFAULT_SECS)
     quiz['job'] = context.application.job_queue.run_once(
         _variant_timeout,
-        VARIANT_SECS,
+        secs,
         data={'chat_id': chat_id},
-        name=f"vquiz_{chat_id}_{idx}",   # unique per question — avoids name conflict
+        name=f"vquiz_{chat_id}_{idx}",
     )
 
 
@@ -588,11 +620,11 @@ async def start_text_quiz(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     await _launch_geo_text(chat_id, lang, context)
 
 
-async def _launch_geo_text(chat_id: str, lang: str,
+async def _launch_geo_text(chat_id: str, lang: str, secs: int,
                             context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Actually start the geography text quiz."""
-    from handlers.poll_quiz import active_poll_quizzes
-    if chat_id in active_variant_quizzes or chat_id in active_text_quizzes or chat_id in active_poll_quizzes:
+    from handlers.poll_quiz import active_poll_quizzes, active_custom_text_quizzes
+    if chat_id in active_variant_quizzes or chat_id in active_text_quizzes \
+            or chat_id in active_poll_quizzes or chat_id in active_custom_text_quizzes:
         await context.bot.send_message(chat_id=int(chat_id), text=_quiz_i18n(lang, 'already'))
         return
 
@@ -602,6 +634,7 @@ async def _launch_geo_text(chat_id: str, lang: str,
         'questions': questions, 'current': 0,
         'scores': {}, 'answered': False,
         'correct_uz': '', 'job': None, 'lang': lang,
+        'timeout_secs': secs,
     }
     await context.bot.send_message(chat_id=int(chat_id),
                                    text=_quiz_i18n(lang, 'text_start'),
@@ -629,7 +662,7 @@ async def _send_text_q(context: ContextTypes.DEFAULT_TYPE, chat_id: str) -> None
         except Exception: pass
     quiz['job'] = context.application.job_queue.run_once(
         _text_timeout,
-        TEXT_SECS,
+        quiz.get('timeout_secs', _DEFAULT_SECS),
         data={'chat_id': chat_id},
         name=f"tquiz_{chat_id}_{idx}",  # unique per question
     )
@@ -782,32 +815,39 @@ async def stop_quiz(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text(msg)
 
 
-async def handle_quiz_mode_callback(update: Update,
+async def handle_quiz_diff_callback(update: Update,
                                      context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Handles inline button: qmode:geo:v1 / qmode:test:v1 / qmode:geo:v2 / qmode:test:v2"""
+    """
+    Handles difficulty selection:
+      q1:geo:easy|med|hard   → geography variant quiz
+      q1:test:easy|med|hard  → native poll test quiz
+      q2:easy|med|hard       → geography text quiz
+    """
     query = update.callback_query
     await query.answer()
 
-    parts = query.data.split(':')   # ['qmode', 'geo'|'test', 'v1'|'v2']
-    if len(parts) != 3:
-        return
-
-    mode  = parts[1]   # 'geo' or 'test'
-    qtype = parts[2]   # 'v1' or 'v2'
+    parts   = query.data.split(':')   # e.g. ['q1','geo','easy'] or ['q2','easy']
     chat_id = str(query.message.chat_id)
-    lang = get_user_lang(str(query.from_user.id))
+    lang    = get_user_lang(str(query.from_user.id))
 
-    # Edit the mode selection message to show what was chosen
-    chosen = (_MODE_GEO if mode == 'geo' else _MODE_TEST).get(lang, '?')
-    try:
-        await query.edit_message_text(f"✅ {chosen}")
-    except Exception:
-        pass
+    if parts[0] == 'q1' and len(parts) == 3:
+        mode = parts[1]   # 'geo' or 'test'
+        diff = parts[2]   # 'easy', 'med', 'hard'
+        secs = _DIFF_SECS.get(diff, _DEFAULT_SECS)
+        dl   = _DIFF_LABELS.get(lang, _DIFF_LABELS['en'])[diff]
+        try: await query.edit_message_text(f"✅ {dl}")
+        except Exception: pass
 
-    if mode == 'test':
-        from handlers.poll_quiz import start_poll_quiz
-        await start_poll_quiz(chat_id, lang, context)   # only v1 (variant) has test mode
-    elif qtype == 'v1':
-        await _launch_geo_variant(chat_id, lang, context)
-    else:
-        await _launch_geo_text(chat_id, lang, context)
+        if mode == 'test':
+            from handlers.poll_quiz import start_poll_quiz
+            await start_poll_quiz(chat_id, lang, secs, context)
+        else:
+            await _launch_geo_variant(chat_id, lang, secs, context)
+
+    elif parts[0] == 'q2' and len(parts) == 2:
+        diff = parts[1]
+        secs = _DIFF_SECS.get(diff, _DEFAULT_SECS)
+        dl   = _DIFF_LABELS.get(lang, _DIFF_LABELS['en'])[diff]
+        try: await query.edit_message_text(f"✅ {dl}")
+        except Exception: pass
+        await _launch_geo_text(chat_id, lang, secs, context)

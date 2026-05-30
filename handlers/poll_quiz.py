@@ -83,7 +83,7 @@ def stop_poll_quiz(chat_id: str) -> bool:
 #  POLL QUIZ  (Telegram native quiz polls)
 # ═══════════════════════════════════════════════════════════════════════════════
 
-async def start_poll_quiz(chat_id: str, lang: str,
+async def start_poll_quiz(chat_id: str, lang: str, secs: int,
                           context: ContextTypes.DEFAULT_TYPE) -> None:
     if chat_id in active_poll_quizzes or chat_id in active_custom_text_quizzes:
         await context.bot.send_message(
@@ -102,6 +102,7 @@ async def start_poll_quiz(chat_id: str, lang: str,
         'questions': questions, 'current': 0,
         'scores': {}, 'poll_id': None, 'job': None,
         'lang': lang, 'question_time': None, 'answered_poll': set(),
+        'timeout_secs': secs,
     }
 
     start_msg = {
@@ -133,6 +134,7 @@ async def _send_poll_question(context: ContextTypes.DEFAULT_TYPE,
     quiz.update(poll_id=None, answered_poll=set(), question_time=time.time())
 
     try:
+        poll_secs = quiz.get('timeout_secs', POLL_SECS)
         msg = await context.bot.send_poll(
             chat_id=int(chat_id),
             question=question_text[:300],
@@ -140,7 +142,7 @@ async def _send_poll_question(context: ContextTypes.DEFAULT_TYPE,
             type='quiz',
             correct_option_id=new_correct,
             is_anonymous=False,
-            open_period=POLL_SECS,
+            open_period=poll_secs,
             explanation=explanation[:200] if explanation else None,
         )
         quiz['poll_id'] = msg.poll.id
@@ -154,7 +156,7 @@ async def _send_poll_question(context: ContextTypes.DEFAULT_TYPE,
 
     quiz['job'] = context.application.job_queue.run_once(
         _poll_advance,
-        POLL_SECS + 2,
+        quiz.get('timeout_secs', POLL_SECS) + 2,
         data={'chat_id': chat_id},
         name=f"pollquiz_{chat_id}_{idx}",
     )
@@ -281,19 +283,18 @@ async def _send_custom_text_q(context: ContextTypes.DEFAULT_TYPE,
     total = len(quiz['questions'])
     q     = quiz['questions'][idx]
 
-    shuffled_opts, new_correct = _shuffled_options(q, lang)
+    # We still shuffle to track correct answer, but DON'T show options to user
+    _, new_correct = _shuffled_options(q, lang)
+    options = q['options'].get(lang, q['options'].get('uz', []))
+    correct_opt = options[q['correct']]   # original correct text
 
-    quiz['correct_letter'] = _LETTERS[new_correct].lower()
-    quiz['correct_text']   = shuffled_opts[new_correct].lower()
+    quiz['correct_text']   = correct_opt.lower()
+    quiz['correct_letter'] = ''   # no letters shown
     quiz['answered']       = False
     quiz['question_time']  = time.time()
 
-    opts_str = '\n'.join(f"{_LETTERS[i]}) {opt}" for i, opt in enumerate(shuffled_opts))
-    text = (
-        f"❓ <b>{idx+1}/{total}</b>\n\n"
-        f"{html.escape(q.get(lang, q.get('uz', '?')))}\n\n"
-        f"{opts_str}"
-    )
+    # Show ONLY the question — no A/B/C/D options
+    text = f"❓ <b>{idx+1}/{total}</b>\n\n{html.escape(q.get(lang, q.get('uz', '?')))}"
 
     await context.bot.send_message(chat_id=int(chat_id), text=text, parse_mode='HTML')
 
@@ -301,9 +302,10 @@ async def _send_custom_text_q(context: ContextTypes.DEFAULT_TYPE,
         try: quiz['job'].schedule_removal()
         except Exception: pass
 
+    secs = quiz.get('timeout_secs', _TEXT_SECS)
     quiz['job'] = context.application.job_queue.run_once(
         _custom_text_timeout,
-        _TEXT_SECS,
+        secs,
         data={'chat_id': chat_id},
         name=f"ctquiz_{chat_id}_{idx}",
     )
@@ -320,7 +322,7 @@ async def check_custom_text_answer(
         return False
 
     answer = raw_text.strip().lower()
-    if answer not in (quiz['correct_letter'], quiz['correct_text']):
+    if answer != quiz['correct_text']:
         return False   # wrong — stay silent, let others try
 
     elapsed = round(time.time() - (quiz.get('question_time') or time.time()), 1)
