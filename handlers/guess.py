@@ -25,7 +25,7 @@ from handlers.flag import get_flag, used_flag_countries
 from handlers.info import info_command, info_lookup
 from handlers.challenge import get_challenge, mark_solved
 from handlers.currency import get_currency_game
-from handlers.quiz import check_text_quiz_answer
+from handlers.quiz import check_text_quiz_answer, start_variant_quiz, start_text_quiz
 
 logger = logging.getLogger(__name__)
 
@@ -53,6 +53,8 @@ def _build_routes():
         routes[s['btn_currency'].lower()]     = get_currency_game
         routes[s['btn_region'].lower()]       = _region_btn
         routes[s['btn_difficulty'].lower()]   = _difficulty_btn
+        routes[s['btn_quiz1'].lower()]        = start_variant_quiz
+        routes[s['btn_quiz2'].lower()]        = start_text_quiz
     return routes
 
 

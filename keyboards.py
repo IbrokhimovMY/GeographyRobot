@@ -8,6 +8,7 @@ def default_kb(lang: str, in_group: bool = False) -> ReplyKeyboardMarkup:
     rows = [
         [t(lang, 'btn_country'), t(lang, 'btn_capital'), t(lang, 'btn_flag')],
         [t(lang, 'btn_currency'), t(lang, 'btn_challenge'), t(lang, 'btn_stats')],
+        [t(lang, 'btn_quiz1'), t(lang, 'btn_quiz2')],
         [t(lang, 'btn_top'), t(lang, 'btn_region'), t(lang, 'btn_difficulty')],
         [t(lang, 'btn_daily_facts'), t(lang, 'btn_info'), t(lang, 'btn_reset')],
         [t(lang, 'btn_help')],
