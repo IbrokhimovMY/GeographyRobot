@@ -19,7 +19,11 @@ from handlers.flag import get_flag
 from handlers.info import info_command
 from handlers.challenge import get_challenge
 from handlers.currency import get_currency_game
-from handlers.quiz import start_variant_quiz, start_text_quiz, stop_quiz, handle_variant_callback
+from handlers.quiz import (
+    start_variant_quiz, start_text_quiz, stop_quiz,
+    handle_variant_callback, handle_quiz_mode_callback,
+)
+from handlers.poll_quiz import handle_poll_answer
 from handlers.invite import invite_command
 from handlers.settings import (
     region_command, region_callback,
@@ -76,7 +80,9 @@ def main() -> None:
     app.add_handler(CallbackQueryHandler(language_callback,    pattern=r'^lang_'))
     app.add_handler(CallbackQueryHandler(region_callback,      pattern=r'^region_'))
     app.add_handler(CallbackQueryHandler(difficulty_callback,  pattern=r'^diff_'))
-    app.add_handler(CallbackQueryHandler(handle_variant_callback, pattern=r'^vq:'))
+    app.add_handler(CallbackQueryHandler(handle_variant_callback,   pattern=r'^vq:'))
+    app.add_handler(CallbackQueryHandler(handle_quiz_mode_callback, pattern=r'^qmode:'))
+    app.add_handler(MessageHandler(filters.POLL_ANSWER, handle_poll_answer))
 
     # Free-text guesses and map WebApp
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_guess))

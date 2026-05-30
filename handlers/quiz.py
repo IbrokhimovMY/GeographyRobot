@@ -11,6 +11,8 @@ import time
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import ContextTypes
 
+from telegram import InlineKeyboardMarkup as IKM, InlineKeyboardButton as IKB
+
 from data import (
     COUNTRIES, COUNTRIES_CAPITALS, COUNTRY_FLAGS,
     COUNTRY_CURRENCIES, COUNTRY_CONTINENTS,
@@ -374,15 +376,40 @@ def _quiz_i18n(lang: str, key: str, **kw) -> str:
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-#  TYPE 1 — VARIANT (inline keyboard A/B/C/D)
+#  MODE SELECTION — shown before any quiz type
 # ──────────────────────────────────────────────────────────────────────────────
 
-async def start_variant_quiz(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    chat_id = _chat(update)
-    lang = get_user_lang(_uid(update))
+_MODE_TEXT = {
+    'uz': "Qaysi turdagi viktorina o'ynamoqchisiz?",
+    'ru': "Какой тип викторины выбираете?",
+    'en': "Which quiz type would you like to play?",
+}
+_MODE_GEO  = {'uz': "🌍 Geografiya", 'ru': "🌍 География", 'en': "🌍 Geography"}
+_MODE_TEST = {'uz': "📚 Test savollari", 'ru': "📚 Тестовые вопросы", 'en': "📚 Custom Test"}
 
-    if chat_id in active_variant_quizzes or chat_id in active_text_quizzes:
-        await update.message.reply_text(_quiz_i18n(lang, 'already'))
+
+def _mode_kb(lang: str, qtype: str) -> IKM:
+    """qtype: 'v1' (variant) or 'v2' (text)"""
+    return IKM([[
+        IKB(_MODE_GEO.get(lang, _MODE_GEO['en']),  callback_data=f"qmode:geo:{qtype}"),
+        IKB(_MODE_TEST.get(lang, _MODE_TEST['en']), callback_data=f"qmode:test:{qtype}"),
+    ]])
+
+
+async def start_variant_quiz(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    lang = get_user_lang(_uid(update))
+    await update.message.reply_text(
+        _MODE_TEXT.get(lang, _MODE_TEXT['en']),
+        reply_markup=_mode_kb(lang, 'v1'),
+    )
+
+
+async def _launch_geo_variant(chat_id: str, lang: str,
+                               context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Actually start the geography variant quiz."""
+    from handlers.poll_quiz import active_poll_quizzes
+    if chat_id in active_variant_quizzes or chat_id in active_text_quizzes or chat_id in active_poll_quizzes:
+        await context.bot.send_message(chat_id=int(chat_id), text=_quiz_i18n(lang, 'already'))
         return
 
     questions = random.sample(COUNTRIES, min(QUIZ_SIZE, len(COUNTRIES)))
@@ -392,7 +419,9 @@ async def start_variant_quiz(update: Update, context: ContextTypes.DEFAULT_TYPE)
         'correct_idx': 0, 'correct_uz': '',
         'job': None, 'lang': lang, 'msg_id': None,
     }
-    await update.message.reply_text(_quiz_i18n(lang, 'variant_start'), parse_mode='HTML')
+    await context.bot.send_message(chat_id=int(chat_id),
+                                   text=_quiz_i18n(lang, 'variant_start'),
+                                   parse_mode='HTML')
     await _send_variant_q(context, chat_id)
 
 
@@ -554,11 +583,19 @@ async def _variant_q_job(context: ContextTypes.DEFAULT_TYPE) -> None:
 # ──────────────────────────────────────────────────────────────────────────────
 
 async def start_text_quiz(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    chat_id = _chat(update)
     lang = get_user_lang(_uid(update))
+    await update.message.reply_text(
+        _MODE_TEXT.get(lang, _MODE_TEXT['en']),
+        reply_markup=_mode_kb(lang, 'v2'),
+    )
 
-    if chat_id in active_variant_quizzes or chat_id in active_text_quizzes:
-        await update.message.reply_text(_quiz_i18n(lang, 'already'))
+
+async def _launch_geo_text(chat_id: str, lang: str,
+                            context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Actually start the geography text quiz."""
+    from handlers.poll_quiz import active_poll_quizzes
+    if chat_id in active_variant_quizzes or chat_id in active_text_quizzes or chat_id in active_poll_quizzes:
+        await context.bot.send_message(chat_id=int(chat_id), text=_quiz_i18n(lang, 'already'))
         return
 
     pool = _countries_with_capitals()
@@ -568,7 +605,9 @@ async def start_text_quiz(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         'scores': {}, 'answered': False,
         'correct_uz': '', 'job': None, 'lang': lang,
     }
-    await update.message.reply_text(_quiz_i18n(lang, 'text_start'), parse_mode='HTML')
+    await context.bot.send_message(chat_id=int(chat_id),
+                                   text=_quiz_i18n(lang, 'text_start'),
+                                   parse_mode='HTML')
     await _send_text_q(context, chat_id)
 
 
@@ -734,7 +773,43 @@ async def stop_quiz(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         q = d.pop(chat_id, None)
         if q:
             if q.get('job'):
-                q['job'].schedule_removal()
+                try: q['job'].schedule_removal()
+                except Exception: pass
             stopped = True
+    # also stop native poll quiz
+    from handlers.poll_quiz import stop_poll_quiz
+    if stop_poll_quiz(chat_id):
+        stopped = True
     msg = _quiz_i18n(lang, 'stopped') if stopped else _quiz_i18n(lang, 'none')
     await update.message.reply_text(msg)
+
+
+async def handle_quiz_mode_callback(update: Update,
+                                     context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Handles inline button: qmode:geo:v1 / qmode:test:v1 / qmode:geo:v2 / qmode:test:v2"""
+    query = update.callback_query
+    await query.answer()
+
+    parts = query.data.split(':')   # ['qmode', 'geo'|'test', 'v1'|'v2']
+    if len(parts) != 3:
+        return
+
+    mode  = parts[1]   # 'geo' or 'test'
+    qtype = parts[2]   # 'v1' or 'v2'
+    chat_id = str(query.message.chat_id)
+    lang = get_user_lang(str(query.from_user.id))
+
+    # Edit the mode selection message to show what was chosen
+    chosen = (_MODE_GEO if mode == 'geo' else _MODE_TEST).get(lang, '?')
+    try:
+        await query.edit_message_text(f"✅ {chosen}")
+    except Exception:
+        pass
+
+    if mode == 'test':
+        from handlers.poll_quiz import start_poll_quiz
+        await start_poll_quiz(chat_id, lang, context)
+    elif qtype == 'v1':
+        await _launch_geo_variant(chat_id, lang, context)
+    else:
+        await _launch_geo_text(chat_id, lang, context)
