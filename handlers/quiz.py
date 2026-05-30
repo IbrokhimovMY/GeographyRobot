@@ -173,12 +173,13 @@ async def _send_variant_q(context: ContextTypes.DEFAULT_TYPE, chat_id: str) -> N
     quiz['msg_id'] = msg.message_id
 
     if quiz.get('job'):
-        quiz['job'].schedule_removal()
+        try: quiz['job'].schedule_removal()
+        except Exception: pass
     quiz['job'] = context.application.job_queue.run_once(
         _variant_timeout,
         VARIANT_SECS,
         data={'chat_id': chat_id},
-        name=f"vquiz_{chat_id}",
+        name=f"vquiz_{chat_id}_{idx}",   # unique per question — avoids name conflict
     )
 
 
@@ -249,11 +250,12 @@ async def _variant_timeout(context: ContextTypes.DEFAULT_TYPE) -> None:
     else:
         # Schedule as a NEW separate job — never call _send_variant_q directly
         # from inside a job callback to avoid PTB job-chain issues
+        next_idx = quiz['current']
         context.application.job_queue.run_once(
             _variant_q_job,
             1,
             data={'chat_id': chat_id},
-            name=f"vquiz_next_{chat_id}",
+            name=f"vquiz_next_{chat_id}_{next_idx}",  # unique per question
         )
 
 
@@ -273,7 +275,7 @@ async def _variant_q_job(context: ContextTypes.DEFAULT_TYPE) -> None:
                 context.application.job_queue.run_once(
                     _variant_q_job, 1,
                     data={'chat_id': chat_id},
-                    name=f"vquiz_skip_{chat_id}",
+                    name=f"vquiz_skip_{chat_id}_{quiz['current']}",
                 )
 
 
@@ -320,12 +322,13 @@ async def _send_text_q(context: ContextTypes.DEFAULT_TYPE, chat_id: str) -> None
     await context.bot.send_message(chat_id=int(chat_id), text=text, parse_mode='HTML')
 
     if quiz.get('job'):
-        quiz['job'].schedule_removal()
+        try: quiz['job'].schedule_removal()
+        except Exception: pass
     quiz['job'] = context.application.job_queue.run_once(
         _text_timeout,
         TEXT_SECS,
         data={'chat_id': chat_id},
-        name=f"tquiz_{chat_id}",
+        name=f"tquiz_{chat_id}_{idx}",  # unique per question
     )
 
 
@@ -343,7 +346,8 @@ async def check_text_quiz_answer(
 
     quiz['answered'] = True
     if quiz.get('job'):
-        quiz['job'].schedule_removal()
+        try: quiz['job'].schedule_removal()
+        except Exception: pass
 
     quiz['scores'].setdefault(user_id, {'name': username, 'score': 0})
     quiz['scores'][user_id]['score'] += 1
@@ -365,11 +369,12 @@ async def check_text_quiz_answer(
     if quiz['current'] >= QUIZ_SIZE:
         await _finish(context, chat_id, 'text')
     else:
+        next_idx = quiz['current']
         quiz['job'] = context.application.job_queue.run_once(
             _next_text_q_job,
-            3,
+            1,                                          # 1s gap then next question
             data={'chat_id': chat_id},
-            name=f"tquiz_next_{chat_id}",
+            name=f"tquiz_next_{chat_id}_{next_idx}",   # unique per question
         )
     return True
 
@@ -389,7 +394,7 @@ async def _next_text_q_job(context: ContextTypes.DEFAULT_TYPE) -> None:
                 context.application.job_queue.run_once(
                     _next_text_q_job, 1,
                     data={'chat_id': chat_id},
-                    name=f"tquiz_skip_{chat_id}",
+                    name=f"tquiz_skip_{chat_id}_{quiz['current']}",
                 )
 
 
@@ -419,12 +424,12 @@ async def _text_timeout(context: ContextTypes.DEFAULT_TYPE) -> None:
     if quiz['current'] >= QUIZ_SIZE:
         await _finish(context, chat_id, 'text')
     else:
-        # Always schedule as a new job — never call _send_text_q directly
+        next_idx = quiz['current']
         context.application.job_queue.run_once(
             _next_text_q_job,
             1,
             data={'chat_id': chat_id},
-            name=f"tquiz_next_{chat_id}",
+            name=f"tquiz_next_{chat_id}_{next_idx}",  # unique per question
         )
 
 
