@@ -39,6 +39,10 @@ def _uname(u: Update) -> str:
     return x.username or x.first_name or str(x.id)
 
 
+def _countries_with_capitals() -> list[str]:
+    return [c for c in COUNTRIES if COUNTRIES_CAPITALS.get(c)]
+
+
 def _make_choices(correct_uz: str, n: int = 4) -> tuple[list[str], int]:
     """(capital_list, correct_index)  for a variant question."""
     pool = [c for c in COUNTRIES if c != correct_uz and COUNTRIES_CAPITALS.get(c)]
@@ -46,7 +50,7 @@ def _make_choices(correct_uz: str, n: int = 4) -> tuple[list[str], int]:
     bucket = decoys + [correct_uz]
     random.shuffle(bucket)
     idx = bucket.index(correct_uz)
-    return [COUNTRIES_CAPITALS[c] for c in bucket], idx
+    return [COUNTRIES_CAPITALS.get(c, '?') for c in bucket], idx
 
 
 def _scoreboard(scores: dict) -> str:
@@ -122,7 +126,8 @@ async def start_variant_quiz(update: Update, context: ContextTypes.DEFAULT_TYPE)
         await update.message.reply_text(_quiz_i18n(lang, 'already'))
         return
 
-    questions = random.sample(COUNTRIES, QUIZ_SIZE)
+    pool = _countries_with_capitals()
+    questions = random.sample(pool, min(QUIZ_SIZE, len(pool)))
     active_variant_quizzes[chat_id] = {
         'questions': questions, 'current': 0,
         'scores': {}, 'answered': set(),
@@ -254,12 +259,22 @@ async def _variant_timeout(context: ContextTypes.DEFAULT_TYPE) -> None:
 
 async def _variant_q_job(context: ContextTypes.DEFAULT_TYPE) -> None:
     """Bridge job so _send_variant_q is always called from a fresh job context."""
+    chat_id = context.job.data.get('chat_id', '')
     try:
-        await _send_variant_q(context, context.job.data['chat_id'])
+        await _send_variant_q(context, chat_id)
     except Exception as e:
-        chat_id = context.job.data.get('chat_id', '?')
         logger.error("variant_q_job error chat=%s: %s", chat_id, e)
-        active_variant_quizzes.pop(chat_id, None)
+        quiz = active_variant_quizzes.get(chat_id)
+        if quiz:
+            quiz['current'] += 1
+            if quiz['current'] >= QUIZ_SIZE:
+                await _finish(context, chat_id, 'variant')
+            else:
+                context.application.job_queue.run_once(
+                    _variant_q_job, 1,
+                    data={'chat_id': chat_id},
+                    name=f"vquiz_skip_{chat_id}",
+                )
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -274,7 +289,8 @@ async def start_text_quiz(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         await update.message.reply_text(_quiz_i18n(lang, 'already'))
         return
 
-    questions = random.sample(COUNTRIES, QUIZ_SIZE)
+    pool = _countries_with_capitals()
+    questions = random.sample(pool, min(QUIZ_SIZE, len(pool)))
     active_text_quizzes[chat_id] = {
         'questions': questions, 'current': 0,
         'scores': {}, 'answered': False,
@@ -359,12 +375,22 @@ async def check_text_quiz_answer(
 
 
 async def _next_text_q_job(context: ContextTypes.DEFAULT_TYPE) -> None:
+    chat_id = context.job.data.get('chat_id', '')
     try:
-        await _send_text_q(context, context.job.data['chat_id'])
+        await _send_text_q(context, chat_id)
     except Exception as e:
-        chat_id = context.job.data.get('chat_id', '?')
         logger.error("next_text_q_job error chat=%s: %s", chat_id, e)
-        active_text_quizzes.pop(chat_id, None)
+        quiz = active_text_quizzes.get(chat_id)
+        if quiz:
+            quiz['current'] += 1
+            if quiz['current'] >= QUIZ_SIZE:
+                await _finish(context, chat_id, 'text')
+            else:
+                context.application.job_queue.run_once(
+                    _next_text_q_job, 1,
+                    data={'chat_id': chat_id},
+                    name=f"tquiz_skip_{chat_id}",
+                )
 
 
 async def _text_timeout(context: ContextTypes.DEFAULT_TYPE) -> None:
