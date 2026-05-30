@@ -19,6 +19,7 @@ from handlers.flag import get_flag
 from handlers.info import info_command
 from handlers.challenge import get_challenge
 from handlers.currency import get_currency_game
+from handlers.quiz import start_variant_quiz, start_text_quiz, stop_quiz, handle_variant_callback
 from handlers.settings import (
     region_command, region_callback,
     difficulty_command, difficulty_callback,
@@ -56,6 +57,9 @@ def main() -> None:
     app.add_handler(CommandHandler('getcurrency', get_currency_game))
     app.add_handler(CommandHandler('hint',       hint))
     app.add_handler(CommandHandler('info',       info_command))
+    app.add_handler(CommandHandler('quiz1',      start_variant_quiz))
+    app.add_handler(CommandHandler('quiz2',      start_text_quiz))
+    app.add_handler(CommandHandler('stopquiz',   stop_quiz))
 
     # Utility commands
     app.add_handler(CommandHandler('stats',      stats))
@@ -67,9 +71,10 @@ def main() -> None:
     app.add_handler(CommandHandler('dailyfacts', daily_facts_command))
 
     # Inline keyboard callbacks
-    app.add_handler(CallbackQueryHandler(language_callback,  pattern=r'^lang_'))
-    app.add_handler(CallbackQueryHandler(region_callback,    pattern=r'^region_'))
-    app.add_handler(CallbackQueryHandler(difficulty_callback, pattern=r'^diff_'))
+    app.add_handler(CallbackQueryHandler(language_callback,    pattern=r'^lang_'))
+    app.add_handler(CallbackQueryHandler(region_callback,      pattern=r'^region_'))
+    app.add_handler(CallbackQueryHandler(difficulty_callback,  pattern=r'^diff_'))
+    app.add_handler(CallbackQueryHandler(handle_variant_callback, pattern=r'^vq:'))
 
     # Free-text guesses and map WebApp
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_guess))

@@ -215,7 +215,7 @@ async def get_capital(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         data={'chat_id': chat_id, 'country': country_uz, 'lang': lang, 'is_group': in_group},
         name=f"timeout_{chat_id}",
     )
-    active_capital_games[chat_id] = {'country': country_uz, 'capital': capital, 'job': job}
+    active_capital_games[chat_id] = {'country': country_uz, 'capital': capital, 'job': job, 'attempts': 0}
 
     progress = t(lang, 'progress', played=len(used), total=len(pool))
     if in_group:

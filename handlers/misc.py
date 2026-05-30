@@ -87,6 +87,7 @@ async def top(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 async def reset(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     chat_id = str(update.effective_chat.id)
     lang = _lang(update)
+    in_group = update.effective_chat.type in ('group', 'supergroup')
     cancel_capital_job(chat_id)
     cancel_country_job(chat_id)
     cancel_flag_job(chat_id)
@@ -98,8 +99,14 @@ async def reset(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     used_capital_countries[chat_id].clear()
     used_country_countries[chat_id].clear()
     used_flag_countries[chat_id].clear()
+    # Also stop active quizzes
+    from handlers.quiz import active_variant_quizzes, active_text_quizzes
+    for d in (active_variant_quizzes, active_text_quizzes):
+        q = d.pop(chat_id, None)
+        if q and q.get('job'):
+            q['job'].schedule_removal()
     logger.info("Reset: chat=%s by %s", chat_id, _uname(update))
-    await update.message.reply_text(t(lang, 'reset_done'), reply_markup=default_kb(lang, update.effective_chat.type in ("group","supergroup")))
+    await update.message.reply_text(t(lang, 'reset_done'), reply_markup=default_kb(lang, in_group))
 
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:

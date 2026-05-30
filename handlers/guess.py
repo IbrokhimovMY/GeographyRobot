@@ -25,6 +25,7 @@ from handlers.flag import get_flag, used_flag_countries
 from handlers.info import info_command, info_lookup
 from handlers.challenge import get_challenge, mark_solved
 from handlers.currency import get_currency_game
+from handlers.quiz import check_text_quiz_answer
 
 logger = logging.getLogger(__name__)
 
@@ -147,6 +148,10 @@ async def handle_guess(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     lang = _lang(update)
     in_group = _is_group(update)
     guess_uz = _normalize(text)
+
+    # --- Text quiz (group quiz type 2) ---
+    if await check_text_quiz_answer(chat_id, user_id, username, guess_uz, update, context):
+        return
 
     # --- Flag game ---
     if chat_id in active_flag_games:
@@ -294,7 +299,8 @@ async def handle_guess(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
     # --- Capital game ---
     if chat_id in active_capital_games:
-        correct_uz = active_capital_games[chat_id]['country']
+        game = active_capital_games[chat_id]
+        correct_uz = game['country']
         if guess_uz.lower() == correct_uz.lower():
             cancel_capital_job(chat_id)
             record_result(user_id, username, 'capital', 'correct')
@@ -314,10 +320,27 @@ async def handle_guess(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             _schedule_fact(context, update.effective_chat.id, correct_uz, lang)
             logger.info("Capital correct: chat=%s user=%s — %s", chat_id, user_id, correct_uz)
         else:
-            record_result(user_id, username, 'capital', 'wrong')
-            if not in_group:
-                reset_streak(user_id, username)
-                await update.message.reply_text(t(lang, 'wrong_capital'), reply_markup=guess_kb(lang))
+            game['attempts'] = game.get('attempts', 0) + 1
+            reset_streak(user_id, username)
+            if game['attempts'] >= MAX_ATTEMPTS:
+                cancel_capital_job(chat_id)
+                del active_capital_games[chat_id]
+                record_result(user_id, username, 'capital', 'wrong')
+                correct_display = get_country_name(correct_uz, lang)
+                await update.message.reply_text(
+                    t(lang, 'game_failed', country=html.escape(correct_display)),
+                    parse_mode='HTML', reply_markup=default_kb(lang, in_group),
+                )
+            else:
+                record_result(user_id, username, 'capital', 'wrong')
+                remaining = MAX_ATTEMPTS - game['attempts']
+                if in_group:
+                    await update.message.reply_text(f"❌ {remaining}🎯")
+                else:
+                    await update.message.reply_text(
+                        f"{t(lang, 'wrong_capital')} ({remaining}🎯)",
+                        reply_markup=guess_kb(lang),
+                    )
         return
 
     if not in_group:
