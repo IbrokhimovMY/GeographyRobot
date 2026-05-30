@@ -26,8 +26,12 @@ logger = logging.getLogger(__name__)
 
 QUIZ_SIZE = 20
 
-# seconds per question for each difficulty level
-_DIFF_SECS = {'easy': 25, 'med': 15, 'hard': 10}
+# Variant quiz — clicking a button is fast
+_DIFF_SECS_V1 = {'easy': 20, 'med': 15, 'hard': 10}
+# Text quiz — typing takes longer
+_DIFF_SECS_V2 = {'easy': 30, 'med': 20, 'hard': 15}
+
+_DIFF_SECS   = _DIFF_SECS_V1   # used for label building (variant default)
 _DEFAULT_SECS = 15
 
 # chat_id → state
@@ -386,18 +390,24 @@ _DIFF_ASK = {
     'ru': "Выберите уровень сложности:",
     'en': "Select difficulty level:",
 }
-_DIFF_LABELS = {
-    'uz': {'easy': f"🟢 Oson ({_DIFF_SECS['easy']}s)", 'med': f"🟡 O'rta ({_DIFF_SECS['med']}s)", 'hard': f"🔴 Qiyin ({_DIFF_SECS['hard']}s)"},
-    'ru': {'easy': f"🟢 Лёгкий ({_DIFF_SECS['easy']}с)", 'med': f"🟡 Средний ({_DIFF_SECS['med']}с)", 'hard': f"🔴 Сложный ({_DIFF_SECS['hard']}с)"},
-    'en': {'easy': f"🟢 Easy ({_DIFF_SECS['easy']}s)", 'med': f"🟡 Medium ({_DIFF_SECS['med']}s)", 'hard': f"🔴 Hard ({_DIFF_SECS['hard']}s)"},
-}
+def _diff_labels(lang: str, secs: dict) -> dict:
+    s = secs
+    return {
+        'uz': {'easy': f"🟢 Oson ({s['easy']}s)", 'med': f"🟡 O'rta ({s['med']}s)", 'hard': f"🔴 Qiyin ({s['hard']}s)"},
+        'ru': {'easy': f"🟢 Лёгкий ({s['easy']}с)", 'med': f"🟡 Средний ({s['med']}с)", 'hard': f"🔴 Сложный ({s['hard']}с)"},
+        'en': {'easy': f"🟢 Easy ({s['easy']}s)", 'med': f"🟡 Medium ({s['med']}s)", 'hard': f"🔴 Hard ({s['hard']}s)"},
+    }.get(lang, {
+        'easy': f"🟢 {s['easy']}s", 'med': f"🟡 {s['med']}s", 'hard': f"🔴 {s['hard']}s"
+    })
+
+_DIFF_LABELS = None   # not used directly — use _diff_labels()
 
 
 def _v1_kb(lang: str) -> IKM:
     """Quiz1 (variant): 6 buttons — 3 difficulties × 2 modes (geo/test)."""
-    dl = _DIFF_LABELS.get(lang, _DIFF_LABELS['en'])
-    geo  = {'uz': '🌍', 'ru': '🌍', 'en': '🌍'}.get(lang, '🌍')
-    test = {'uz': '📚', 'ru': '📚', 'en': '📚'}.get(lang, '📚')
+    dl   = _diff_labels(lang, _DIFF_SECS_V1)
+    geo  = '🌍'
+    test = '📚'
     return IKM([
         [IKB(f"{geo} {dl['easy']}", callback_data="q1:geo:easy"),
          IKB(f"{geo} {dl['med']}",  callback_data="q1:geo:med"),
@@ -409,8 +419,8 @@ def _v1_kb(lang: str) -> IKM:
 
 
 def _v2_kb(lang: str) -> IKM:
-    """Quiz2 (text): 3 buttons — difficulties only."""
-    dl = _DIFF_LABELS.get(lang, _DIFF_LABELS['en'])
+    """Quiz2 (text): 3 buttons — difficulties only (text needs more time)."""
+    dl = _diff_labels(lang, _DIFF_SECS_V2)
     return IKM([[
         IKB(dl['easy'], callback_data="q2:easy"),
         IKB(dl['med'],  callback_data="q2:med"),
@@ -833,8 +843,8 @@ async def handle_quiz_diff_callback(update: Update,
     if parts[0] == 'q1' and len(parts) == 3:
         mode = parts[1]   # 'geo' or 'test'
         diff = parts[2]   # 'easy', 'med', 'hard'
-        secs = _DIFF_SECS.get(diff, _DEFAULT_SECS)
-        dl   = _DIFF_LABELS.get(lang, _DIFF_LABELS['en'])[diff]
+        secs = _DIFF_SECS_V1.get(diff, _DEFAULT_SECS)
+        dl   = _diff_labels(lang, _DIFF_SECS_V1)[diff]
         try: await query.edit_message_text(f"✅ {dl}")
         except Exception: pass
 
@@ -846,8 +856,8 @@ async def handle_quiz_diff_callback(update: Update,
 
     elif parts[0] == 'q2' and len(parts) == 2:
         diff = parts[1]
-        secs = _DIFF_SECS.get(diff, _DEFAULT_SECS)
-        dl   = _DIFF_LABELS.get(lang, _DIFF_LABELS['en'])[diff]
+        secs = _DIFF_SECS_V2.get(diff, _DEFAULT_SECS)
+        dl   = _diff_labels(lang, _DIFF_SECS_V2)[diff]
         try: await query.edit_message_text(f"✅ {dl}")
         except Exception: pass
         await _launch_geo_text(chat_id, lang, secs, context)
