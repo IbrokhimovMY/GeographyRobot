@@ -30,9 +30,11 @@ def guess_kb(lang: str) -> ReplyKeyboardMarkup:
 def map_kb(lang: str) -> ReplyKeyboardMarkup:
     if not WEBAPP_URL or WEBAPP_URL == 'https://your-domain.com/map.html':
         return guess_kb(lang)
+    sep = '&' if '?' in WEBAPP_URL else '?'
+    map_url = WEBAPP_URL + sep + 'start=map'
     return ReplyKeyboardMarkup(
         [
-            [telegram.KeyboardButton(t(lang, 'btn_map'), web_app=WebAppInfo(url=WEBAPP_URL))],
+            [telegram.KeyboardButton(t(lang, 'btn_map'), web_app=WebAppInfo(url=map_url))],
             [t(lang, 'btn_hint'), t(lang, 'btn_reset')],
         ],
         resize_keyboard=True,

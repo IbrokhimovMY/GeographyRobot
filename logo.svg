@@ -77,10 +77,10 @@
         font-size="48" font-weight="900" fill="#FFFFFF" letter-spacing="1"
         style="text-shadow: 0 2px 8px rgba(0,0,0,0.5)">GEOGRAPHY</text>
 
-  <!-- Text: QUIZ BOT -->
+  <!-- Text: @MYGeoRobot -->
   <text x="256" y="482" text-anchor="middle"
         font-family="'Arial', sans-serif"
-        font-size="28" font-weight="700" fill="#FFD54F" letter-spacing="6">QUIZ BOT</text>
+        font-size="28" font-weight="700" fill="#FFD54F" letter-spacing="2">@MYGeoRobot</text>
 
   <!-- Subtle bottom glow -->
   <ellipse cx="256" cy="490" rx="180" ry="12" fill="#2196F3" opacity="0.12"/>

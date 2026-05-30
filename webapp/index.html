@@ -1041,12 +1041,19 @@ const NUM_ISO2 = Object.fromEntries(Object.entries(ISO2_NUM).map(([k,v])=>[v,k])
 
 let _worldData = null;
 let _mapGame = null;
+let _forcedMapCountry = null;  // set before calling startMapGame() to pin a specific country
 
 async function startMapGame() {
-  const pool = (state.region === 'all' ? GAME_DATA : GAME_DATA.filter(c=>c.continent===state.region))
-    .filter(c => c.iso2 && ISO2_NUM[c.iso2]);
-  if (!pool.length) { showToast('No countries!'); return; }
-  const country = pool[Math.floor(Math.random()*pool.length)];
+  let country;
+  if (_forcedMapCountry) {
+    country = _forcedMapCountry;
+    _forcedMapCountry = null;
+  } else {
+    const pool = (state.region === 'all' ? GAME_DATA : GAME_DATA.filter(c=>c.continent===state.region))
+      .filter(c => c.iso2 && ISO2_NUM[c.iso2]);
+    if (!pool.length) { showToast('No countries!'); return; }
+    country = pool[Math.floor(Math.random()*pool.length)];
+  }
   const duration = TIMERS.map[state.difficulty];
   _mapGame = {
     country, attempts: 0,
@@ -1238,6 +1245,26 @@ function loadPersistentStats() {
 // Load saved stats FIRST so renderHome() displays real numbers, not zeros
 loadPersistentStats();
 setLang(state.lang);  // sets correct active button and calls renderHome()
+
+// If opened from the bot's map button (?start=map), auto-launch map game
+// and try to sync with the bot's active country game
+(function() {
+  const startParam = new URLSearchParams(window.location.search).get('start');
+  if (startParam !== 'map') return;
+  const uid = tg?.initDataUnsafe?.user?.id;
+  const launch = () => window.startGame('map');
+  if (!uid) { launch(); return; }
+  fetch(`/api/game?user_id=${uid}`)
+    .then(r => r.json())
+    .then(d => {
+      if (d.active && d.country_uz) {
+        const c = GAME_DATA.find(x => x.key === d.country_uz);
+        if (c && c.iso2 && ISO2_NUM[c.iso2]) _forcedMapCountry = c;
+      }
+      launch();
+    })
+    .catch(launch);
+})();
 </script>
 </body>
 </html>

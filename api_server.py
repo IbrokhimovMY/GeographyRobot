@@ -96,6 +96,18 @@ async def handle_stats(request: web.Request) -> web.Response:
     return web.json_response(s)
 
 
+async def handle_game(request: web.Request) -> web.Response:
+    """Return the active country game for a user (for mini app map sync)."""
+    user_id = request.rel_url.query.get("user_id", "")
+    if not user_id:
+        return web.json_response({"active": False})
+    from state import active_country_games
+    game = active_country_games.get(user_id)  # works for private chats (chat_id == user_id)
+    if not game:
+        return web.json_response({"active": False})
+    return web.json_response({"active": True, "country_uz": game["country"]})
+
+
 async def handle_leaderboard(_: web.Request) -> web.Response:
     rows = get_top_users(10)
     result = [{"name": r[0], "correct": r[1], "total": r[2],
@@ -123,6 +135,7 @@ def build_app() -> web.Application:
     app = web.Application()
     app.router.add_post("/api/result",       handle_result)
     app.router.add_get("/api/stats",         handle_stats)
+    app.router.add_get("/api/game",          handle_game)
     app.router.add_get("/api/leaderboard",   handle_leaderboard)
     app.router.add_get("/",           lambda r: web.HTTPFound("/app/index.html"))
     app.router.add_get("/app",        lambda r: web.HTTPFound("/app/index.html"))
