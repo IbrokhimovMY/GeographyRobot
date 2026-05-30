@@ -2,7 +2,7 @@ import logging
 from datetime import time
 
 import telegram
-from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters
+from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, PollAnswerHandler, filters
 
 from config import BOT_TOKEN, API_PORT
 from database import init_db
@@ -82,7 +82,7 @@ def main() -> None:
     app.add_handler(CallbackQueryHandler(difficulty_callback,  pattern=r'^diff_'))
     app.add_handler(CallbackQueryHandler(handle_variant_callback,   pattern=r'^vq:'))
     app.add_handler(CallbackQueryHandler(handle_quiz_mode_callback, pattern=r'^qmode:'))
-    app.add_handler(MessageHandler(filters.POLL_ANSWER, handle_poll_answer))
+    app.add_handler(PollAnswerHandler(handle_poll_answer))
 
     # Free-text guesses and map WebApp
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_guess))
