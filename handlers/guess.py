@@ -182,13 +182,16 @@ async def handle_guess(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
                     t(lang, 'game_failed', country=html.escape(correct_display)),
                     parse_mode='HTML', reply_markup=default_kb(lang, in_group),
                 )
-            elif not in_group:
+            else:
                 reset_streak(user_id, username)
                 remaining = MAX_ATTEMPTS - game['attempts']
-                await update.message.reply_text(
-                    f"{t(lang, 'wrong_flag')} ({remaining}🎯)",
-                    reply_markup=guess_kb(lang),
-                )
+                if in_group:
+                    await update.message.reply_text(f"❌ {remaining}🎯")
+                else:
+                    await update.message.reply_text(
+                        f"{t(lang, 'wrong_flag')} ({remaining}🎯)",
+                        reply_markup=guess_kb(lang),
+                    )
         return
 
     # --- Currency game ---
@@ -221,13 +224,16 @@ async def handle_guess(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
                     t(lang, 'game_failed', country=html.escape(correct_display)),
                     parse_mode='HTML', reply_markup=default_kb(lang, in_group),
                 )
-            elif not in_group:
+            else:
                 reset_streak(user_id, username)
                 remaining = MAX_ATTEMPTS - game['attempts']
-                await update.message.reply_text(
-                    f"{t(lang, 'wrong_country')} ({remaining}🎯)",
-                    reply_markup=guess_kb(lang),
-                )
+                if in_group:
+                    await update.message.reply_text(f"❌ {remaining}🎯")
+                else:
+                    await update.message.reply_text(
+                        f"{t(lang, 'wrong_country')} ({remaining}🎯)",
+                        reply_markup=guess_kb(lang),
+                    )
         return
 
     # --- Country game ---
@@ -274,13 +280,16 @@ async def handle_guess(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
                     t(lang, 'game_failed', country=html.escape(correct_display)),
                     parse_mode='HTML', reply_markup=default_kb(lang, in_group),
                 )
-            elif not in_group:
+            else:
                 reset_streak(user_id, username)
                 remaining = MAX_ATTEMPTS - game['attempts']
-                await update.message.reply_text(
-                    f"{t(lang, 'wrong_country')} ({remaining}🎯)",
-                    reply_markup=map_kb(lang, in_group),
-                )
+                if in_group:
+                    await update.message.reply_text(f"❌ {remaining}🎯")
+                else:
+                    await update.message.reply_text(
+                        f"{t(lang, 'wrong_country')} ({remaining}🎯)",
+                        reply_markup=map_kb(lang, in_group),
+                    )
         return
 
     # --- Capital game ---

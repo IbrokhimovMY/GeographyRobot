@@ -75,7 +75,8 @@ async def daily_facts_command(update: Update, context: ContextTypes.DEFAULT_TYPE
 
     new_state = toggle_daily_facts(user_id, username)
     key = 'daily_facts_on' if new_state else 'daily_facts_off'
-    await update.message.reply_text(t(lang, key), reply_markup=default_kb(lang))
+    in_group = update.effective_chat.type in ('group', 'supergroup')
+    await update.message.reply_text(t(lang, key), reply_markup=default_kb(lang, in_group))
     logger.info("Daily facts toggled: user=%s → %s", user_id, new_state)
 
 

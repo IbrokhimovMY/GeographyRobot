@@ -62,10 +62,11 @@ async def lang_selected(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
 
     # Returning user (already has a name) — go straight to main keyboard
     if get_display_name(user_id):
+        in_group = query.message.chat.type in ('group', 'supergroup')
         await context.bot.send_message(
             chat_id=query.message.chat_id,
             text=t(lang, 'welcome'),
-            reply_markup=default_kb(lang),
+            reply_markup=default_kb(lang, in_group),
         )
         return ConversationHandler.END
 
@@ -92,10 +93,11 @@ async def name_entered(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
     set_display_name(user_id, username, name)
     logger.info("Onboarding complete: %s → %s", user_id, name)
 
+    in_group = update.effective_chat.type in ('group', 'supergroup')
     await update.message.reply_text(
         t(lang, 'onboard_done', name=html.escape(name)),
         parse_mode='HTML',
-        reply_markup=default_kb(lang),
+        reply_markup=default_kb(lang, in_group),
     )
     context.user_data.pop('onboard_lang', None)
     return ConversationHandler.END
