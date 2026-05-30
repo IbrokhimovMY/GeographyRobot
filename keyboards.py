@@ -4,7 +4,7 @@ from translations import t
 from config import WEBAPP_URL
 
 
-def default_kb(lang: str) -> ReplyKeyboardMarkup:
+def default_kb(lang: str, in_group: bool = False) -> ReplyKeyboardMarkup:
     rows = [
         [t(lang, 'btn_country'), t(lang, 'btn_capital'), t(lang, 'btn_flag')],
         [t(lang, 'btn_currency'), t(lang, 'btn_challenge'), t(lang, 'btn_stats')],
@@ -12,7 +12,8 @@ def default_kb(lang: str) -> ReplyKeyboardMarkup:
         [t(lang, 'btn_daily_facts'), t(lang, 'btn_info'), t(lang, 'btn_reset')],
         [t(lang, 'btn_help')],
     ]
-    if WEBAPP_URL:
+    # WebApp buttons are not supported in groups — only add in private chats
+    if WEBAPP_URL and not in_group:
         rows.append([telegram.KeyboardButton(t(lang, 'btn_miniapp'), web_app=WebAppInfo(url=WEBAPP_URL))])
     return ReplyKeyboardMarkup(rows, resize_keyboard=True, one_time_keyboard=False)
 
@@ -27,8 +28,9 @@ def guess_kb(lang: str) -> ReplyKeyboardMarkup:
     )
 
 
-def map_kb(lang: str) -> ReplyKeyboardMarkup:
-    if not WEBAPP_URL or WEBAPP_URL == 'https://your-domain.com/map.html':
+def map_kb(lang: str, in_group: bool = False) -> ReplyKeyboardMarkup:
+    # WebApp buttons not allowed in groups
+    if in_group or not WEBAPP_URL or WEBAPP_URL == 'https://your-domain.com/map.html':
         return guess_kb(lang)
     sep = '&' if '?' in WEBAPP_URL else '?'
     map_url = WEBAPP_URL + sep + 'start=map'

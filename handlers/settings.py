@@ -54,7 +54,7 @@ async def region_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     await context.bot.send_message(
         chat_id=query.message.chat_id,
         text=t(lang, 'welcome'),
-        reply_markup=default_kb(lang),
+        reply_markup=default_kb(lang, update.effective_chat.type in ("group","supergroup")),
     )
 
 
@@ -78,5 +78,5 @@ async def difficulty_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
     await context.bot.send_message(
         chat_id=query.message.chat_id,
         text=t(lang, 'welcome'),
-        reply_markup=default_kb(lang),
+        reply_markup=default_kb(lang, update.effective_chat.type in ("group","supergroup")),
     )

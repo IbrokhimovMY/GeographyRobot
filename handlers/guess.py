@@ -167,7 +167,7 @@ async def handle_guess(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             else:
                 msg = t(lang, 'correct_flag_private',
                         country=html.escape(correct_display), flag=flag) + streak_sfx
-            await update.message.reply_text(msg, parse_mode='HTML', reply_markup=default_kb(lang))
+            await update.message.reply_text(msg, parse_mode='HTML', reply_markup=default_kb(lang, in_group))
             _schedule_fact(context, update.effective_chat.id, correct_uz, lang)
         else:
             game['attempts'] += 1
@@ -180,7 +180,7 @@ async def handle_guess(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
                 correct_display = get_country_name(correct_uz, lang)
                 await update.message.reply_text(
                     t(lang, 'game_failed', country=html.escape(correct_display)),
-                    parse_mode='HTML', reply_markup=default_kb(lang),
+                    parse_mode='HTML', reply_markup=default_kb(lang, in_group),
                 )
             elif not in_group:
                 reset_streak(user_id, username)
@@ -206,7 +206,7 @@ async def handle_guess(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             msg = t(lang, 'correct_currency',
                     country=html.escape(correct_display), flag=flag,
                     currency=cur_name, code=cur_code) + streak_sfx
-            await update.message.reply_text(msg, parse_mode='HTML', reply_markup=default_kb(lang))
+            await update.message.reply_text(msg, parse_mode='HTML', reply_markup=default_kb(lang, in_group))
             _schedule_fact(context, update.effective_chat.id, correct_uz, lang)
         else:
             game['attempts'] += 1
@@ -219,7 +219,7 @@ async def handle_guess(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
                 reset_streak(user_id, username)
                 await update.message.reply_text(
                     t(lang, 'game_failed', country=html.escape(correct_display)),
-                    parse_mode='HTML', reply_markup=default_kb(lang),
+                    parse_mode='HTML', reply_markup=default_kb(lang, in_group),
                 )
             elif not in_group:
                 reset_streak(user_id, username)
@@ -259,7 +259,7 @@ async def handle_guess(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
                 msg = t(lang, 'correct_country_private',
                         name=html.escape(name),
                         country=html.escape(correct_display)) + streak_sfx
-            await update.message.reply_text(msg, parse_mode='HTML', reply_markup=default_kb(lang))
+            await update.message.reply_text(msg, parse_mode='HTML', reply_markup=default_kb(lang, in_group))
             _schedule_fact(context, update.effective_chat.id, correct_uz, lang)
             logger.info("Country correct: chat=%s user=%s — %s", chat_id, user_id, correct_uz)
         else:
@@ -272,14 +272,14 @@ async def handle_guess(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
                 correct_display = get_country_name(correct_uz, lang)
                 await update.message.reply_text(
                     t(lang, 'game_failed', country=html.escape(correct_display)),
-                    parse_mode='HTML', reply_markup=default_kb(lang),
+                    parse_mode='HTML', reply_markup=default_kb(lang, in_group),
                 )
             elif not in_group:
                 reset_streak(user_id, username)
                 remaining = MAX_ATTEMPTS - game['attempts']
                 await update.message.reply_text(
                     f"{t(lang, 'wrong_country')} ({remaining}🎯)",
-                    reply_markup=map_kb(lang),
+                    reply_markup=map_kb(lang, in_group),
                 )
         return
 
@@ -301,7 +301,7 @@ async def handle_guess(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
                 msg = t(lang, 'correct_capital_private',
                         name=html.escape(name),
                         country=html.escape(correct_display)) + streak_sfx
-            await update.message.reply_text(msg, parse_mode='HTML', reply_markup=default_kb(lang))
+            await update.message.reply_text(msg, parse_mode='HTML', reply_markup=default_kb(lang, in_group))
             _schedule_fact(context, update.effective_chat.id, correct_uz, lang)
             logger.info("Capital correct: chat=%s user=%s — %s", chat_id, user_id, correct_uz)
         else:
@@ -312,7 +312,7 @@ async def handle_guess(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         return
 
     if not in_group:
-        await update.message.reply_text(t(lang, 'no_active_game'), reply_markup=default_kb(lang))
+        await update.message.reply_text(t(lang, 'no_active_game'), reply_markup=default_kb(lang, in_group))
 
 
 async def handle_webapp_data(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -377,7 +377,7 @@ async def handle_webapp_data(update: Update, context: ContextTypes.DEFAULT_TYPE)
             await context.bot.send_message(
                 chat_id=int(chat_id),
                 text=t(lang, 'game_failed', country=html.escape(correct_display)),
-                parse_mode='HTML', reply_markup=default_kb(lang),
+                parse_mode='HTML', reply_markup=default_kb(lang, in_group),
             )
         else:
             reset_streak(user_id, username)
@@ -387,5 +387,5 @@ async def handle_webapp_data(update: Update, context: ContextTypes.DEFAULT_TYPE)
                 chat_id=int(chat_id),
                 text=f"{t(lang, 'map_wrong', selected=html.escape(selected_display))} ({remaining}🎯)",
                 parse_mode='HTML',
-                reply_markup=map_kb(lang),
+                reply_markup=map_kb(lang, in_group),
             )

@@ -126,8 +126,9 @@ async def get_country(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     pool = _filtered_pool(user_id)
     used = used_country_countries[chat_id]
     available = [c for c in pool if c not in used]
+    in_group = _is_group(update)
     if not available:
-        await update.message.reply_text(t(lang, 'all_countries_played'), reply_markup=default_kb(lang))
+        await update.message.reply_text(t(lang, 'all_countries_played'), reply_markup=default_kb(lang, in_group))
         return
 
     country_uz = random.choice(available)
@@ -137,7 +138,7 @@ async def get_country(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     job = context.job_queue.run_once(
         callback=timeout_country_guess,
         when=timeout_sec,
-        data={'chat_id': chat_id, 'country': country_uz, 'lang': lang},
+        data={'chat_id': chat_id, 'country': country_uz, 'lang': lang, 'is_group': in_group},
         name=f"country_timeout_{chat_id}",
     )
     active_country_games[chat_id] = {
@@ -152,13 +153,13 @@ async def get_country(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         extra = f'\n🚩 {flag}'
 
     progress = t(lang, 'progress', played=len(used), total=len(pool))
-    if _is_group(update):
+    if in_group:
         msg = t(lang, 'country_game_group', hint=hint_text) + extra
     else:
         msg = t(lang, 'country_game_private', hint=hint_text) + extra
 
     await update.message.reply_text(
-        f"{msg}\n\n{progress}", parse_mode='Markdown', reply_markup=map_kb(lang)
+        f"{msg}\n\n{progress}", parse_mode='Markdown', reply_markup=map_kb(lang, in_group)
     )
     logger.info("Country game: chat=%s → %s [%s]", chat_id, country_uz, difficulty)
 
@@ -175,7 +176,7 @@ async def timeout_country_guess(context: ContextTypes.DEFAULT_TYPE) -> None:
             chat_id=int(chat_id),
             text=t(lang, 'timeout_country', country=country_display),
             parse_mode='Markdown',
-            reply_markup=default_kb(lang),
+            reply_markup=default_kb(lang, data.get('is_group', False)),
         )
 
 
@@ -199,8 +200,9 @@ async def get_capital(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     pool = _filtered_pool(user_id)
     used = used_capital_countries[chat_id]
     available = [c for c in pool if c not in used]
+    in_group = _is_group(update)
     if not available:
-        await update.message.reply_text(t(lang, 'all_capitals_played'), reply_markup=default_kb(lang))
+        await update.message.reply_text(t(lang, 'all_capitals_played'), reply_markup=default_kb(lang, in_group))
         return
 
     country_uz = random.choice(available)
@@ -210,13 +212,13 @@ async def get_capital(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     job = context.job_queue.run_once(
         callback=timeout_capital_guess,
         when=timeout_sec,
-        data={'chat_id': chat_id, 'country': country_uz, 'lang': lang},
+        data={'chat_id': chat_id, 'country': country_uz, 'lang': lang, 'is_group': in_group},
         name=f"timeout_{chat_id}",
     )
     active_capital_games[chat_id] = {'country': country_uz, 'capital': capital, 'job': job}
 
     progress = t(lang, 'progress', played=len(used), total=len(pool))
-    if _is_group(update):
+    if in_group:
         msg = t(lang, 'capital_game_group', capital=capital)
     else:
         msg = t(lang, 'capital_game_private', capital=capital)
@@ -239,7 +241,7 @@ async def timeout_capital_guess(context: ContextTypes.DEFAULT_TYPE) -> None:
             chat_id=int(chat_id),
             text=t(lang, 'timeout', country=country_display),
             parse_mode='Markdown',
-            reply_markup=default_kb(lang),
+            reply_markup=default_kb(lang, data.get('is_group', False)),
         )
         logger.info("Capital timeout: chat=%s — %s", chat_id, country_uz)
 
@@ -278,4 +280,4 @@ async def hint(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         hint_msg = await _next_hint(country_uz, lang, game['hint_data'])
         await update.message.reply_text(hint_msg, parse_mode='Markdown', reply_markup=kb)
     else:
-        await update.message.reply_text(t(lang, 'hint_no_game'), reply_markup=default_kb(lang))
+        await update.message.reply_text(t(lang, 'hint_no_game'), reply_markup=default_kb(lang, _is_group(update)))

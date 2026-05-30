@@ -48,16 +48,17 @@ async def get_currency_game(update: Update, context: ContextTypes.DEFAULT_TYPE) 
             and c in COUNTRY_CURRENCIES and COUNTRY_CURRENCIES[c][0]]
 
     if not pool:
-        await update.message.reply_text(t(lang, 'no_countries'), reply_markup=default_kb(lang))
+        await update.message.reply_text(t(lang, 'no_countries'), reply_markup=default_kb(lang, update.effective_chat.type in ("group","supergroup")))
         return
 
     country_uz = random.choice(pool)
     cur_name, cur_code = COUNTRY_CURRENCIES[country_uz]
 
+    in_group = update.effective_chat.type in ('group', 'supergroup')
     job = context.job_queue.run_once(
         callback=_timeout_currency,
         when=timeout_sec,
-        data={'chat_id': chat_id, 'country': country_uz, 'lang': lang},
+        data={'chat_id': chat_id, 'country': country_uz, 'lang': lang, 'is_group': in_group},
         name=f"currency_timeout_{chat_id}",
     )
     active_currency_games[chat_id] = {
@@ -84,5 +85,5 @@ async def _timeout_currency(context: ContextTypes.DEFAULT_TYPE) -> None:
             text=t(lang, 'timeout_currency', country=country_display,
                    currency=cur_name, code=cur_code),
             parse_mode='HTML',
-            reply_markup=default_kb(lang),
+            reply_markup=default_kb(lang, data.get('is_group', False)),
         )

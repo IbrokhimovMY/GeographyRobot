@@ -62,14 +62,14 @@ async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         + t(lang, 'stats_timeout', timeout=total_timeout, tpct=timeout_pct)
         + t(lang, 'stats_streak',  streak=s['streak'],    best=s['best_streak'])
     )
-    await update.message.reply_text(text, parse_mode='HTML', reply_markup=default_kb(lang))
+    await update.message.reply_text(text, parse_mode='HTML', reply_markup=default_kb(lang, update.effective_chat.type in ("group","supergroup")))
 
 
 async def top(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     lang = _lang(update)
     rows = get_top_users(10)
     if not rows:
-        await update.message.reply_text(t(lang, 'top_no_players'), reply_markup=default_kb(lang))
+        await update.message.reply_text(t(lang, 'top_no_players'), reply_markup=default_kb(lang, update.effective_chat.type in ("group","supergroup")))
         return
 
     medals = ['🥇', '🥈', '🥉']
@@ -81,7 +81,7 @@ async def top(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                        medal=medal, name=html.escape(str(name)),
                        pct=pct, correct=total_correct, total=total_games))
 
-    await update.message.reply_text('\n'.join(lines), parse_mode='HTML', reply_markup=default_kb(lang))
+    await update.message.reply_text('\n'.join(lines), parse_mode='HTML', reply_markup=default_kb(lang, update.effective_chat.type in ("group","supergroup")))
 
 
 async def reset(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -99,12 +99,12 @@ async def reset(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     used_country_countries[chat_id].clear()
     used_flag_countries[chat_id].clear()
     logger.info("Reset: chat=%s by %s", chat_id, _uname(update))
-    await update.message.reply_text(t(lang, 'reset_done'), reply_markup=default_kb(lang))
+    await update.message.reply_text(t(lang, 'reset_done'), reply_markup=default_kb(lang, update.effective_chat.type in ("group","supergroup")))
 
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     lang = _lang(update)
-    await update.message.reply_text(t(lang, 'help_text'), reply_markup=default_kb(lang))
+    await update.message.reply_text(t(lang, 'help_text'), reply_markup=default_kb(lang, update.effective_chat.type in ("group","supergroup")))
 
 
 async def language_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:

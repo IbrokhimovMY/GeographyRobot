@@ -67,7 +67,7 @@ async def get_flag(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         available = pool[:]
 
     if not available:
-        await update.message.reply_text(t(lang, 'all_flags_played'), reply_markup=default_kb(lang))
+        await update.message.reply_text(t(lang, 'all_flags_played'), reply_markup=default_kb(lang, update.effective_chat.type in ("group","supergroup")))
         return
 
     country_uz = random.choice(available)
@@ -76,7 +76,8 @@ async def get_flag(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     job = context.job_queue.run_once(
         callback=timeout_flag_guess,
         when=timeout_sec,
-        data={'chat_id': chat_id, 'country': country_uz, 'lang': lang},
+        data={'chat_id': chat_id, 'country': country_uz, 'lang': lang,
+              'is_group': _is_group(update)},
         name=f"flag_timeout_{chat_id}",
     )
     active_flag_games[chat_id] = {
@@ -111,5 +112,5 @@ async def timeout_flag_guess(context: ContextTypes.DEFAULT_TYPE) -> None:
             chat_id=int(chat_id),
             text=t(lang, 'timeout_flag', flag=flag, country=country_display),
             parse_mode='Markdown',
-            reply_markup=default_kb(lang),
+            reply_markup=default_kb(lang, data.get('is_group', False)),
         )
