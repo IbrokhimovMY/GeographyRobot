@@ -276,7 +276,8 @@ async def hint(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         return
 
     if country_uz and game is not None:
-        kb = map_kb(lang) if chat_id in active_country_games else guess_kb(lang)
+        in_group = _is_group(update)
+        kb = map_kb(lang, in_group) if chat_id in active_country_games else guess_kb(lang)
         hint_msg = await _next_hint(country_uz, lang, game['hint_data'])
         await update.message.reply_text(hint_msg, parse_mode='Markdown', reply_markup=kb)
     else:

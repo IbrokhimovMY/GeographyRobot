@@ -6,6 +6,7 @@ Group quiz games:
 import html
 import logging
 import random
+import time
 
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import ContextTypes
@@ -57,15 +58,24 @@ def _make_choices(correct_uz: str, n: int = 4) -> tuple[list[str], int]:
     return [COUNTRIES_CAPITALS.get(c, '?') for c in bucket], idx
 
 
+def _avg_time(d: dict) -> float:
+    times = d.get('times', [])
+    return sum(times) / len(times) if times else 999.0
+
+
 def _scoreboard(scores: dict) -> str:
     if not scores:
         return "—"
     medals = ['🥇', '🥈', '🥉']
-    rows = sorted(scores.items(), key=lambda x: x[1]['score'], reverse=True)
+    # Primary: score desc; secondary: average response time asc (tiebreaker)
+    rows = sorted(scores.items(),
+                  key=lambda x: (-x[1]['score'], _avg_time(x[1])))
     lines = []
     for i, (_, d) in enumerate(rows[:10]):
         med = medals[i] if i < 3 else f"{i+1}."
-        lines.append(f"{med} <b>{html.escape(d['name'])}</b> — {d['score']}")
+        avg = _avg_time(d)
+        time_str = f"  ⏱ {avg:.1f}s" if d.get('times') else ""
+        lines.append(f"{med} <b>{html.escape(d['name'])}</b> — {d['score']}{time_str}")
     return '\n'.join(lines)
 
 
@@ -416,6 +426,7 @@ async def _send_variant_q(context: ContextTypes.DEFAULT_TYPE, chat_id: str) -> N
         chat_id=int(chat_id), text=full_text, parse_mode='HTML', reply_markup=kb
     )
     quiz['msg_id'] = msg.message_id
+    quiz['question_time'] = time.time()   # record when question was sent
 
     if quiz.get('job'):
         try: quiz['job'].schedule_removal()
@@ -450,13 +461,15 @@ async def handle_variant_callback(update: Update, context: ContextTypes.DEFAULT_
     if user_id in quiz['answered']:
         await query.answer("⏳ Already answered!"); return
 
+    elapsed = round(time.time() - quiz.get('question_time', time.time()), 1)
     quiz['answered'].add(user_id)
     if answer_idx == quiz['correct_idx']:
-        quiz['scores'].setdefault(user_id, {'name': username, 'score': 0})
+        quiz['scores'].setdefault(user_id, {'name': username, 'score': 0, 'times': []})
         quiz['scores'][user_id]['score'] += 1
-        await query.answer("✅ Correct! +1")
+        quiz['scores'][user_id]['times'].append(elapsed)
+        await query.answer(f"✅ Correct! +1  ({elapsed}s)")
     else:
-        await query.answer("❌ Wrong!")
+        await query.answer(f"❌ Wrong!  ({elapsed}s)")
 
 
 async def _variant_timeout(context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -479,10 +492,23 @@ async def _variant_timeout(context: ContextTypes.DEFAULT_TYPE) -> None:
         except Exception:
             pass
 
+    # Build correct-answer text + who answered correctly with their times
+    correct_line = _quiz_i18n(lang, 'correct_ans', label=label, answer=html.escape(answer))
+    # Show this question's correct answerers sorted by response time
+    q_correct = [
+        (d['name'], d['times'][-1])
+        for uid, d in quiz['scores'].items()
+        if d.get('times') and uid in quiz['answered']
+    ]
+    if q_correct:
+        q_correct.sort(key=lambda x: x[1])
+        correct_line += '\n' + '  '.join(
+            f"👤 {html.escape(n)} <i>{t:.1f}s</i>" for n, t in q_correct[:5]
+        )
     try:
         await context.bot.send_message(
             chat_id=int(chat_id),
-            text=_quiz_i18n(lang, 'correct_ans', label=label, answer=html.escape(answer)),
+            text=correct_line,
             parse_mode='HTML',
         )
     except Exception as e:
@@ -559,6 +585,7 @@ async def _send_text_q(context: ContextTypes.DEFAULT_TYPE, chat_id: str) -> None
     quiz.update(correct_uz=correct_uz, answered=False)
 
     await context.bot.send_message(chat_id=int(chat_id), text=text, parse_mode='HTML')
+    quiz['question_time'] = time.time()   # record when question was sent
 
     if quiz.get('job'):
         try: quiz['job'].schedule_removal()
@@ -583,24 +610,28 @@ async def check_text_quiz_answer(
     if guess_uz.lower() != quiz['correct_uz'].lower():
         return False   # wrong — keep silent, let others try
 
+    elapsed = round(time.time() - quiz.get('question_time', time.time()), 1)
     quiz['answered'] = True
     if quiz.get('job'):
         try: quiz['job'].schedule_removal()
         except Exception: pass
 
-    quiz['scores'].setdefault(user_id, {'name': username, 'score': 0})
+    quiz['scores'].setdefault(user_id, {'name': username, 'score': 0, 'times': []})
     quiz['scores'][user_id]['score'] += 1
+    quiz['scores'][user_id]['times'].append(elapsed)
 
     lang = quiz['lang']
     cuz  = quiz['correct_uz']
     flag = COUNTRY_FLAGS.get(cuz, '🌍')
     name = update.effective_user.first_name or username
 
+    time_label = {'uz': f"⏱ {elapsed}s", 'ru': f"⏱ {elapsed}с", 'en': f"⏱ {elapsed}s"}.get(lang, f"⏱ {elapsed}s")
     await update.message.reply_text(
         _quiz_i18n(lang, 'first_correct',
                    name=html.escape(name),
                    flag=flag,
-                   country=html.escape(get_country_name(cuz, lang))),
+                   country=html.escape(get_country_name(cuz, lang)))
+        + f"  {time_label}",
         parse_mode='HTML',
     )
 
