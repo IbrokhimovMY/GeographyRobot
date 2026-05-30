@@ -10,10 +10,13 @@ import random
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import ContextTypes
 
-from data import COUNTRIES, COUNTRIES_CAPITALS, COUNTRY_FLAGS, COUNTRY_HINTS_UZ
+from data import (
+    COUNTRIES, COUNTRIES_CAPITALS, COUNTRY_FLAGS,
+    COUNTRY_CURRENCIES, COUNTRY_CONTINENTS,
+)
 from database import get_user_lang
 from keyboards import default_kb
-from translations import t, get_country_name, get_hint
+from translations import get_country_name
 
 logger = logging.getLogger(__name__)
 
@@ -65,49 +68,181 @@ def _scoreboard(scores: dict) -> str:
     return '\n'.join(lines)
 
 
+_CONTINENTS = {
+    'africa':        {'uz': 'Afrika',          'ru': 'Африка',           'en': 'Africa'},
+    'asia':          {'uz': 'Osiyo',            'ru': 'Азия',             'en': 'Asia'},
+    'europe':        {'uz': 'Yevropa',          'ru': 'Европа',           'en': 'Europe'},
+    'north_america': {'uz': 'Shimoliy Amerika', 'ru': 'Северная Америка', 'en': 'North America'},
+    'south_america': {'uz': 'Janubiy Amerika',  'ru': 'Южная Америка',    'en': 'South America'},
+    'oceania':       {'uz': 'Okeaniya',         'ru': 'Океания',          'en': 'Oceania'},
+}
+
+_Q = {
+    'uz': {
+        'ask_capital':   "🏙 Poytaxti qaysi?",
+        'ask_flag':      "Bu qaysi davlatning bayrog'i?",
+        'ask_currency':  "Bu valyuta qaysi davlatda ishlatiladi?",
+        'ask_continent': "Bu davlat qaysi qit'ada?",
+        'ask_country':   "Bu qaysi davlat?",
+    },
+    'ru': {
+        'ask_capital':   "🏙 Какова столица?",
+        'ask_flag':      "Флаг какой страны?",
+        'ask_currency':  "Какая страна использует эту валюту?",
+        'ask_continent': "В каком континенте эта страна?",
+        'ask_country':   "Что за страна?",
+    },
+    'en': {
+        'ask_capital':   "🏙 What is the capital?",
+        'ask_flag':      "Which country has this flag?",
+        'ask_currency':  "Which country uses this currency?",
+        'ask_continent': "Which continent is this country in?",
+        'ask_country':   "Which country is it?",
+    },
+}
+
+
+def _qask(lang: str, key: str) -> str:
+    return _Q.get(lang, _Q['en']).get(key, key)
+
+
+def _cont_name(key: str, lang: str) -> str:
+    return _CONTINENTS.get(key, {}).get(lang) or _CONTINENTS.get(key, {}).get('en', key)
+
+
+def _make_country_choices(correct_uz: str, lang: str, n: int = 4) -> tuple[list[str], int]:
+    """Returns (country-name list, correct_index) for flag/currency/continent questions."""
+    pool = [c for c in COUNTRIES if c != correct_uz]
+    decoys = random.sample(pool, min(n - 1, len(pool)))
+    bucket = decoys + [correct_uz]
+    random.shuffle(bucket)
+    idx = bucket.index(correct_uz)
+    return [get_country_name(c, lang) for c in bucket], idx
+
+
+def _continent_choices(correct_uz: str, lang: str) -> tuple[list[str], int]:
+    correct_cont = COUNTRY_CONTINENTS.get(correct_uz, 'asia')
+    wrong = [c for c in _CONTINENTS if c != correct_cont]
+    bucket = random.sample(wrong, min(3, len(wrong))) + [correct_cont]
+    random.shuffle(bucket)
+    idx = bucket.index(correct_cont)
+    return [_cont_name(c, lang) for c in bucket], idx
+
+
+def _build_variant_question(country_uz: str, q_num: int, lang: str) -> dict:
+    """Pick a random question type, return {text, choices, correct_idx, answer_text}."""
+    flag = COUNTRY_FLAGS.get(country_uz, '🌍')
+    cname = get_country_name(country_uz, lang)
+    num = f"<b>{q_num}/{QUIZ_SIZE}</b>"
+
+    types = ['continent']
+    if COUNTRIES_CAPITALS.get(country_uz):
+        types.append('capital')
+    if COUNTRY_FLAGS.get(country_uz):
+        types.append('flag')
+    cur = COUNTRY_CURRENCIES.get(country_uz)
+    if cur and cur[0]:
+        types.append('currency')
+
+    qtype = random.choice(types)
+
+    if qtype == 'capital':
+        choices, cidx = _make_choices(country_uz)
+        ask = _qask(lang, 'ask_capital')
+        text = f"❓ {num}\n\n{flag} <b>{html.escape(cname)}</b>\n\n{ask}"
+        answer = COUNTRIES_CAPITALS.get(country_uz, '?')
+
+    elif qtype == 'flag':
+        choices, cidx = _make_country_choices(country_uz, lang)
+        ask = _qask(lang, 'ask_flag')
+        text = f"❓ {num}\n\n{flag}\n\n{ask}"
+        answer = cname
+
+    elif qtype == 'currency':
+        cur_name, cur_code = cur
+        choices, cidx = _make_country_choices(country_uz, lang)
+        ask = _qask(lang, 'ask_currency')
+        text = f"❓ {num}\n\n💵 <b>{html.escape(cur_name)}</b> (<code>{cur_code}</code>)\n\n{ask}"
+        answer = cname
+
+    else:  # continent
+        choices, cidx = _continent_choices(country_uz, lang)
+        ask = _qask(lang, 'ask_continent')
+        text = f"❓ {num}\n\n{flag} <b>{html.escape(cname)}</b>\n\n{ask}"
+        correct_cont = COUNTRY_CONTINENTS.get(country_uz, 'asia')
+        answer = _cont_name(correct_cont, lang)
+
+    return {'text': text, 'choices': choices, 'correct_idx': cidx, 'answer': answer}
+
+
+def _build_text_question(country_uz: str, q_num: int, lang: str) -> str:
+    """Pick a random question type for text quiz. Answer is always the country name."""
+    flag = COUNTRY_FLAGS.get(country_uz, '🌍')
+    num = f"<b>{q_num}/{QUIZ_SIZE}</b>"
+    ask = _qask(lang, 'ask_country')
+
+    types = []
+    if COUNTRIES_CAPITALS.get(country_uz):
+        types.append('capital')
+    if COUNTRY_FLAGS.get(country_uz):
+        types.append('flag')
+    cur = COUNTRY_CURRENCIES.get(country_uz)
+    if cur and cur[0]:
+        types.append('currency')
+    if not types:
+        types = ['capital']
+
+    qtype = random.choice(types)
+
+    if qtype == 'capital':
+        cap = COUNTRIES_CAPITALS.get(country_uz, '?')
+        return f"❓ {num}\n\n🏙 <b>{html.escape(cap)}</b> {flag}\n\n{ask}"
+
+    elif qtype == 'flag':
+        return f"❓ {num}\n\n{flag}\n\n{ask}"
+
+    else:  # currency
+        cur_name, cur_code = cur
+        return f"❓ {num}\n\n💵 <b>{html.escape(cur_name)}</b> (<code>{cur_code}</code>) {flag}\n\n{ask}"
+
+
 def _quiz_i18n(lang: str, key: str, **kw) -> str:
     strings = {
         'uz': {
-            'variant_start':  "🎮 <b>Viktorina boshlanadi!</b>\n20 ta savol · Har biriga 15 soniya\nVariantlardan birini tanlang 👇",
-            'text_start':     "🎮 <b>Viktorina boshlanadi!</b>\n20 ta savol · Har biriga 15 soniya\nJavobni yozing, birinchi to'g'ri javob ball oladi!",
-            'q_variant':      "❓ <b>{idx}/{total}</b>\n\n{flag} <b>{country}</b>\n\n🏙 Poytaxti qaysi shahar?",
-            'q_text':         "❓ <b>{idx}/{total}</b>\n\n🏙 <b>{capital}</b> {flag}\n\nBu qaysi davlat?",
-            'correct_ans':    "✅ {label} <b>{capital}</b>",
-            'first_correct':  "✅ <b>{name}</b> +1 · {flag} <b>{country}</b>",
-            'timeout':        "⏰ {flag} <b>{country}</b>",
-            'results':        "🏆 <b>Viktorina tugadi!</b>\n\n{board}",
-            'no_scores':      "Hech kim to'g'ri javob bermadi.",
-            'already':        "⚠️ Allaqachon quiz bor!",
-            'stopped':        "✅ Quiz to'xtatildi.",
-            'none':           "Faol quiz yo'q.",
+            'variant_start': "🎮 <b>Viktorina boshlanadi!</b>\n20 ta savol · Har biriga 15 soniya\nVariantlardan birini tanlang 👇",
+            'text_start':    "🎮 <b>Viktorina boshlanadi!</b>\n20 ta savol · Har biriga 15 soniya\nJavobni yozing, birinchi to'g'ri javob ball oladi!",
+            'correct_ans':   "✅ {label} <b>{answer}</b>",
+            'first_correct': "✅ <b>{name}</b> +1 · {flag} <b>{country}</b>",
+            'timeout':       "⏰ {flag} <b>{country}</b>",
+            'results':       "🏆 <b>Viktorina tugadi!</b>\n\n{board}",
+            'no_scores':     "Hech kim to'g'ri javob bermadi.",
+            'already':       "⚠️ Allaqachon quiz bor!",
+            'stopped':       "✅ Quiz to'xtatildi.",
+            'none':          "Faol quiz yo'q.",
         },
         'ru': {
-            'variant_start':  "🎮 <b>Квиз начинается!</b>\n20 вопросов · 15 секунд на каждый\nВыберите один из вариантов 👇",
-            'text_start':     "🎮 <b>Квиз начинается!</b>\n20 вопросов · 15 секунд на каждый\nПишите ответ, первый правильный получает балл!",
-            'q_variant':      "❓ <b>{idx}/{total}</b>\n\n{flag} <b>{country}</b>\n\n🏙 Какова столица?",
-            'q_text':         "❓ <b>{idx}/{total}</b>\n\n🏙 <b>{capital}</b> {flag}\n\nЧья это столица?",
-            'correct_ans':    "✅ {label} <b>{capital}</b>",
-            'first_correct':  "✅ <b>{name}</b> +1 · {flag} <b>{country}</b>",
-            'timeout':        "⏰ {flag} <b>{country}</b>",
-            'results':        "🏆 <b>Квиз завершён!</b>\n\n{board}",
-            'no_scores':      "Никто не ответил правильно.",
-            'already':        "⚠️ Квиз уже идёт!",
-            'stopped':        "✅ Квиз остановлен.",
-            'none':           "Нет активного квиза.",
+            'variant_start': "🎮 <b>Квиз начинается!</b>\n20 вопросов · 15 секунд на каждый\nВыберите один из вариантов 👇",
+            'text_start':    "🎮 <b>Квиз начинается!</b>\n20 вопросов · 15 секунд на каждый\nПишите ответ, первый правильный получает балл!",
+            'correct_ans':   "✅ {label} <b>{answer}</b>",
+            'first_correct': "✅ <b>{name}</b> +1 · {flag} <b>{country}</b>",
+            'timeout':       "⏰ {flag} <b>{country}</b>",
+            'results':       "🏆 <b>Квиз завершён!</b>\n\n{board}",
+            'no_scores':     "Никто не ответил правильно.",
+            'already':       "⚠️ Квиз уже идёт!",
+            'stopped':       "✅ Квиз остановлен.",
+            'none':          "Нет активного квиза.",
         },
         'en': {
-            'variant_start':  "🎮 <b>Quiz starts!</b>\n20 questions · 15 seconds each\nPick one of the options 👇",
-            'text_start':     "🎮 <b>Quiz starts!</b>\n20 questions · 15 seconds each\nType your answer — first correct wins a point!",
-            'q_variant':      "❓ <b>{idx}/{total}</b>\n\n{flag} <b>{country}</b>\n\n🏙 What is the capital?",
-            'q_text':         "❓ <b>{idx}/{total}</b>\n\n🏙 <b>{capital}</b> {flag}\n\nWhich country?",
-            'correct_ans':    "✅ {label} <b>{capital}</b>",
-            'first_correct':  "✅ <b>{name}</b> +1 · {flag} <b>{country}</b>",
-            'timeout':        "⏰ {flag} <b>{country}</b>",
-            'results':        "🏆 <b>Quiz finished!</b>\n\n{board}",
-            'no_scores':      "Nobody answered correctly.",
-            'already':        "⚠️ A quiz is already running!",
-            'stopped':        "✅ Quiz stopped.",
-            'none':           "No active quiz.",
+            'variant_start': "🎮 <b>Quiz starts!</b>\n20 questions · 15 seconds each\nPick one of the options 👇",
+            'text_start':    "🎮 <b>Quiz starts!</b>\n20 questions · 15 seconds each\nType your answer — first correct wins a point!",
+            'correct_ans':   "✅ {label} <b>{answer}</b>",
+            'first_correct': "✅ <b>{name}</b> +1 · {flag} <b>{country}</b>",
+            'timeout':       "⏰ {flag} <b>{country}</b>",
+            'results':       "🏆 <b>Quiz finished!</b>\n\n{board}",
+            'no_scores':     "Nobody answered correctly.",
+            'already':       "⚠️ A quiz is already running!",
+            'stopped':       "✅ Quiz stopped.",
+            'none':          "No active quiz.",
         },
     }
     tmpl = strings.get(lang, strings['en']).get(key, key)
@@ -126,8 +261,7 @@ async def start_variant_quiz(update: Update, context: ContextTypes.DEFAULT_TYPE)
         await update.message.reply_text(_quiz_i18n(lang, 'already'))
         return
 
-    pool = _countries_with_capitals()
-    questions = random.sample(pool, min(QUIZ_SIZE, len(pool)))
+    questions = random.sample(COUNTRIES, min(QUIZ_SIZE, len(COUNTRIES)))
     active_variant_quizzes[chat_id] = {
         'questions': questions, 'current': 0,
         'scores': {}, 'answered': set(),
@@ -143,23 +277,18 @@ async def _send_variant_q(context: ContextTypes.DEFAULT_TYPE, chat_id: str) -> N
     if not quiz:
         return
 
-    idx    = quiz['current']
-    lang   = quiz['lang']
-    cuz    = quiz['questions'][idx]
-    choices, correct_idx = _make_choices(cuz)
+    idx  = quiz['current']
+    lang = quiz['lang']
+    cuz  = quiz['questions'][idx]
 
-    quiz.update(correct_idx=correct_idx, correct_uz=cuz, answered=set())
+    q = _build_variant_question(cuz, idx + 1, lang)
+    quiz.update(correct_idx=q['correct_idx'], correct_uz=cuz,
+                correct_answer=q['answer'], answered=set())
 
-    country_display = get_country_name(cuz, lang)
-    flag = COUNTRY_FLAGS.get(cuz, '🌍')
-
-    text = _quiz_i18n(lang, 'q_variant',
-                      idx=idx + 1, total=QUIZ_SIZE,
-                      flag=flag, country=html.escape(country_display))
-    text += '\n\n' + '\n'.join(
+    choices = q['choices']
+    full_text = q['text'] + '\n\n' + '\n'.join(
         f"{_LABELS[i]} {html.escape(c)}" for i, c in enumerate(choices)
     )
-
     kb = InlineKeyboardMarkup([
         [InlineKeyboardButton(f"{_LABELS[i]} {c[:28]}", callback_data=f"vq:{chat_id}:{i}")
          for i, c in enumerate(choices[:2])],
@@ -168,7 +297,7 @@ async def _send_variant_q(context: ContextTypes.DEFAULT_TYPE, chat_id: str) -> N
     ])
 
     msg = await context.bot.send_message(
-        chat_id=int(chat_id), text=text, parse_mode='HTML', reply_markup=kb
+        chat_id=int(chat_id), text=full_text, parse_mode='HTML', reply_markup=kb
     )
     quiz['msg_id'] = msg.message_id
 
@@ -222,9 +351,8 @@ async def _variant_timeout(context: ContextTypes.DEFAULT_TYPE) -> None:
         return
 
     lang    = quiz['lang']
-    cuz     = quiz['correct_uz']
-    cap     = COUNTRIES_CAPITALS.get(cuz, '?')
-    label   = _LABELS[quiz['correct_idx']]
+    label  = _LABELS[quiz['correct_idx']]
+    answer = quiz.get('correct_answer', '?')
 
     # Remove inline keyboard from question message
     if quiz.get('msg_id'):
@@ -238,7 +366,7 @@ async def _variant_timeout(context: ContextTypes.DEFAULT_TYPE) -> None:
     try:
         await context.bot.send_message(
             chat_id=int(chat_id),
-            text=_quiz_i18n(lang, 'correct_ans', label=label, capital=html.escape(cap)),
+            text=_quiz_i18n(lang, 'correct_ans', label=label, answer=html.escape(answer)),
             parse_mode='HTML',
         )
     except Exception as e:
@@ -310,15 +438,10 @@ async def _send_text_q(context: ContextTypes.DEFAULT_TYPE, chat_id: str) -> None
     idx  = quiz['current']
     lang = quiz['lang']
     cuz  = quiz['questions'][idx]
-    cap  = COUNTRIES_CAPITALS.get(cuz, '?')
-    flag = COUNTRY_FLAGS.get(cuz, '🌍')
 
     quiz.update(correct_uz=cuz, answered=False)
 
-    text = _quiz_i18n(lang, 'q_text',
-                      idx=idx + 1, total=QUIZ_SIZE,
-                      capital=html.escape(cap), flag=flag)
-
+    text = _build_text_question(cuz, idx + 1, lang)
     await context.bot.send_message(chat_id=int(chat_id), text=text, parse_mode='HTML')
 
     if quiz.get('job'):
