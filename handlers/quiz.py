@@ -583,11 +583,9 @@ async def _variant_q_job(context: ContextTypes.DEFAULT_TYPE) -> None:
 # ──────────────────────────────────────────────────────────────────────────────
 
 async def start_text_quiz(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    chat_id = _chat(update)
     lang = get_user_lang(_uid(update))
-    await update.message.reply_text(
-        _MODE_TEXT.get(lang, _MODE_TEXT['en']),
-        reply_markup=_mode_kb(lang, 'v2'),
-    )
+    await _launch_geo_text(chat_id, lang, context)
 
 
 async def _launch_geo_text(chat_id: str, lang: str,
@@ -807,11 +805,8 @@ async def handle_quiz_mode_callback(update: Update,
         pass
 
     if mode == 'test':
-        from handlers.poll_quiz import start_poll_quiz, start_custom_text_quiz
-        if qtype == 'v1':
-            await start_poll_quiz(chat_id, lang, context)      # native polls
-        else:
-            await start_custom_text_quiz(chat_id, lang, context)  # text Q&A
+        from handlers.poll_quiz import start_poll_quiz
+        await start_poll_quiz(chat_id, lang, context)   # only v1 (variant) has test mode
     elif qtype == 'v1':
         await _launch_geo_variant(chat_id, lang, context)
     else:
