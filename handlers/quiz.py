@@ -18,7 +18,7 @@ from translations import t, get_country_name, get_hint
 logger = logging.getLogger(__name__)
 
 QUIZ_SIZE      = 20
-VARIANT_SECS   = 20   # seconds per variant question
+VARIANT_SECS   = 15   # seconds per variant question
 TEXT_SECS      = 15   # seconds per text question
 
 # chat_id → state
@@ -64,7 +64,7 @@ def _scoreboard(scores: dict) -> str:
 def _quiz_i18n(lang: str, key: str, **kw) -> str:
     strings = {
         'uz': {
-            'variant_start':  "🎮 <b>Viktorina boshlanadi!</b>\n20 ta savol · Har biriga 20 soniya\nVariantlardan birini tanlang 👇",
+            'variant_start':  "🎮 <b>Viktorina boshlanadi!</b>\n20 ta savol · Har biriga 15 soniya\nVariantlardan birini tanlang 👇",
             'text_start':     "🎮 <b>Viktorina boshlanadi!</b>\n20 ta savol · Har biriga 15 soniya\nJavobni yozing, birinchi to'g'ri javob ball oladi!",
             'q_variant':      "❓ <b>{idx}/{total}</b>\n\n{flag} <b>{country}</b>\n\n🏙 Poytaxti qaysi shahar?",
             'q_text':         "❓ <b>{idx}/{total}</b>\n\n🏙 <b>{capital}</b> {flag}\n\nBu qaysi davlat?",
@@ -78,7 +78,7 @@ def _quiz_i18n(lang: str, key: str, **kw) -> str:
             'none':           "Faol quiz yo'q.",
         },
         'ru': {
-            'variant_start':  "🎮 <b>Квиз начинается!</b>\n20 вопросов · 20 секунд на каждый\nВыберите один из вариантов 👇",
+            'variant_start':  "🎮 <b>Квиз начинается!</b>\n20 вопросов · 15 секунд на каждый\nВыберите один из вариантов 👇",
             'text_start':     "🎮 <b>Квиз начинается!</b>\n20 вопросов · 15 секунд на каждый\nПишите ответ, первый правильный получает балл!",
             'q_variant':      "❓ <b>{idx}/{total}</b>\n\n{flag} <b>{country}</b>\n\n🏙 Какова столица?",
             'q_text':         "❓ <b>{idx}/{total}</b>\n\n🏙 <b>{capital}</b> {flag}\n\nЧья это столица?",
@@ -92,7 +92,7 @@ def _quiz_i18n(lang: str, key: str, **kw) -> str:
             'none':           "Нет активного квиза.",
         },
         'en': {
-            'variant_start':  "🎮 <b>Quiz starts!</b>\n20 questions · 20 seconds each\nPick one of the options 👇",
+            'variant_start':  "🎮 <b>Quiz starts!</b>\n20 questions · 15 seconds each\nPick one of the options 👇",
             'text_start':     "🎮 <b>Quiz starts!</b>\n20 questions · 15 seconds each\nType your answer — first correct wins a point!",
             'q_variant':      "❓ <b>{idx}/{total}</b>\n\n{flag} <b>{country}</b>\n\n🏙 What is the capital?",
             'q_text':         "❓ <b>{idx}/{total}</b>\n\n🏙 <b>{capital}</b> {flag}\n\nWhich country?",
@@ -229,17 +229,37 @@ async def _variant_timeout(context: ContextTypes.DEFAULT_TYPE) -> None:
         except Exception:
             pass
 
-    await context.bot.send_message(
-        chat_id=int(chat_id),
-        text=_quiz_i18n(lang, 'correct_ans', label=label, capital=html.escape(cap)),
-        parse_mode='HTML',
-    )
+    try:
+        await context.bot.send_message(
+            chat_id=int(chat_id),
+            text=_quiz_i18n(lang, 'correct_ans', label=label, capital=html.escape(cap)),
+            parse_mode='HTML',
+        )
+    except Exception as e:
+        logger.error("variant_timeout send error: %s", e)
 
     quiz['current'] += 1
     if quiz['current'] >= QUIZ_SIZE:
         await _finish(context, chat_id, 'variant')
     else:
-        await _send_variant_q(context, chat_id)
+        # Schedule as a NEW separate job — never call _send_variant_q directly
+        # from inside a job callback to avoid PTB job-chain issues
+        context.application.job_queue.run_once(
+            _variant_q_job,
+            1,
+            data={'chat_id': chat_id},
+            name=f"vquiz_next_{chat_id}",
+        )
+
+
+async def _variant_q_job(context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Bridge job so _send_variant_q is always called from a fresh job context."""
+    try:
+        await _send_variant_q(context, context.job.data['chat_id'])
+    except Exception as e:
+        chat_id = context.job.data.get('chat_id', '?')
+        logger.error("variant_q_job error chat=%s: %s", chat_id, e)
+        active_variant_quizzes.pop(chat_id, None)
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -339,7 +359,12 @@ async def check_text_quiz_answer(
 
 
 async def _next_text_q_job(context: ContextTypes.DEFAULT_TYPE) -> None:
-    await _send_text_q(context, context.job.data['chat_id'])
+    try:
+        await _send_text_q(context, context.job.data['chat_id'])
+    except Exception as e:
+        chat_id = context.job.data.get('chat_id', '?')
+        logger.error("next_text_q_job error chat=%s: %s", chat_id, e)
+        active_text_quizzes.pop(chat_id, None)
 
 
 async def _text_timeout(context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -353,19 +378,28 @@ async def _text_timeout(context: ContextTypes.DEFAULT_TYPE) -> None:
     cuz  = quiz['correct_uz']
     flag = COUNTRY_FLAGS.get(cuz, '🌍')
 
-    await context.bot.send_message(
-        chat_id=int(chat_id),
-        text=_quiz_i18n(lang, 'timeout',
-                        flag=flag,
-                        country=html.escape(get_country_name(cuz, lang))),
-        parse_mode='HTML',
-    )
+    try:
+        await context.bot.send_message(
+            chat_id=int(chat_id),
+            text=_quiz_i18n(lang, 'timeout',
+                            flag=flag,
+                            country=html.escape(get_country_name(cuz, lang))),
+            parse_mode='HTML',
+        )
+    except Exception as e:
+        logger.error("text_timeout send error: %s", e)
 
     quiz['current'] += 1
     if quiz['current'] >= QUIZ_SIZE:
         await _finish(context, chat_id, 'text')
     else:
-        await _send_text_q(context, chat_id)
+        # Always schedule as a new job — never call _send_text_q directly
+        context.application.job_queue.run_once(
+            _next_text_q_job,
+            1,
+            data={'chat_id': chat_id},
+            name=f"tquiz_next_{chat_id}",
+        )
 
 
 # ──────────────────────────────────────────────────────────────────────────────
