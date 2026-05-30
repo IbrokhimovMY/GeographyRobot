@@ -17,6 +17,7 @@ from data import (
 from database import get_user_lang
 from keyboards import default_kb
 from translations import get_country_name
+from geo_facts import MOUNTAIN_FACTS, RIVER_FACTS, LAKE_FACTS, GEO_RECORDS
 
 logger = logging.getLogger(__name__)
 
@@ -129,8 +130,115 @@ def _continent_choices(correct_uz: str, lang: str) -> tuple[list[str], int]:
     return [_cont_name(c, lang) for c in bucket], idx
 
 
+def _geo_country_choices(correct_uz: str, lang: str, n: int = 4) -> tuple[list[str], int]:
+    """4 country-name choices where correct_uz is one of them."""
+    pool = [c for c in COUNTRIES if c != correct_uz]
+    decoys = random.sample(pool, min(n - 1, len(pool)))
+    bucket = decoys + [correct_uz]
+    random.shuffle(bucket)
+    idx = bucket.index(correct_uz)
+    return [get_country_name(c, lang) for c in bucket], idx
+
+
+# Pre-filter facts to only those whose country exists in COUNTRIES
+_COUNTRIES_SET = set(COUNTRIES)
+_VALID_MOUNTAINS = [(n, c) for n, c in MOUNTAIN_FACTS if c in _COUNTRIES_SET]
+_VALID_RIVERS    = [(n, c) for n, c in RIVER_FACTS    if c in _COUNTRIES_SET]
+_VALID_LAKES     = [(n, c) for n, c in LAKE_FACTS     if c in _COUNTRIES_SET]
+
+
+def _ask_geo(lang: str, geo_type: str) -> str:
+    q = {
+        'mountain': {'uz': "⛰ Bu tog' qaysi davlatda joylashgan?",
+                     'ru': "⛰ В какой стране находится эта гора?",
+                     'en': "⛰ In which country is this mountain located?"},
+        'river':    {'uz': "🌊 Bu daryo qaysi davlat hududidan oqadi?",
+                     'ru': "🌊 Через какую страну протекает эта река?",
+                     'en': "🌊 Which country does this river flow through?"},
+        'lake':     {'uz': "🏞 Bu ko'l qaysi davlatda joylashgan?",
+                     'ru': "🏞 В какой стране находится это озеро?",
+                     'en': "🏞 In which country is this lake located?"},
+    }
+    return q.get(geo_type, {}).get(lang, q.get(geo_type, {}).get('en', '?'))
+
+
+def _build_geo_question(q_num: int, lang: str) -> dict | None:
+    """Build mountain/river/lake/record question. Returns None if no valid facts."""
+    pool = []
+    if _VALID_MOUNTAINS: pool.append('mountain')
+    if _VALID_RIVERS:    pool.append('river')
+    if _VALID_LAKES:     pool.append('lake')
+    if GEO_RECORDS:      pool.append('record')
+    if not pool:
+        return None
+
+    geo_type = random.choice(pool)
+    num = f"<b>{q_num}/{QUIZ_SIZE}</b>"
+
+    if geo_type == 'record':
+        rec = random.choice(GEO_RECORDS)
+        choices = rec['choices'].get(lang, rec['choices']['en'])
+        cidx = rec['correct']
+        q_text = f"❓ {num}\n\n{rec.get(lang, rec['en'])}"
+        return {
+            'text': q_text, 'choices': list(choices),
+            'correct_idx': cidx, 'answer': choices[cidx],
+            'geo_type': 'record', 'correct_uz': None,
+        }
+
+    if geo_type == 'mountain':
+        name, country_uz = random.choice(_VALID_MOUNTAINS)
+        choices, cidx = _geo_country_choices(country_uz, lang)
+        q_text = f"❓ {num}\n\n⛰ <b>{html.escape(name)}</b>\n\n{_ask_geo(lang, 'mountain')}"
+    elif geo_type == 'river':
+        name, country_uz = random.choice(_VALID_RIVERS)
+        choices, cidx = _geo_country_choices(country_uz, lang)
+        q_text = f"❓ {num}\n\n🌊 <b>{html.escape(name)}</b>\n\n{_ask_geo(lang, 'river')}"
+    else:  # lake
+        name, country_uz = random.choice(_VALID_LAKES)
+        choices, cidx = _geo_country_choices(country_uz, lang)
+        q_text = f"❓ {num}\n\n🏞 <b>{html.escape(name)}</b>\n\n{_ask_geo(lang, 'lake')}"
+
+    return {
+        'text': q_text, 'choices': choices,
+        'correct_idx': cidx, 'answer': choices[cidx],
+        'geo_type': geo_type, 'correct_uz': country_uz,
+    }
+
+
+def _build_geo_text_question(q_num: int, lang: str) -> tuple[str, str] | None:
+    """Build mountain/river/lake text question. Returns (question_text, correct_uz)."""
+    pool = []
+    if _VALID_MOUNTAINS: pool.append('mountain')
+    if _VALID_RIVERS:    pool.append('river')
+    if _VALID_LAKES:     pool.append('lake')
+    if not pool:
+        return None
+
+    geo_type = random.choice(pool)
+    num = f"<b>{q_num}/{QUIZ_SIZE}</b>"
+
+    if geo_type == 'mountain':
+        name, country_uz = random.choice(_VALID_MOUNTAINS)
+        text = f"❓ {num}\n\n⛰ <b>{html.escape(name)}</b>\n\n{_ask_geo(lang, 'mountain')}"
+    elif geo_type == 'river':
+        name, country_uz = random.choice(_VALID_RIVERS)
+        text = f"❓ {num}\n\n🌊 <b>{html.escape(name)}</b>\n\n{_ask_geo(lang, 'river')}"
+    else:
+        name, country_uz = random.choice(_VALID_LAKES)
+        text = f"❓ {num}\n\n🏞 <b>{html.escape(name)}</b>\n\n{_ask_geo(lang, 'lake')}"
+
+    return text, country_uz
+
+
 def _build_variant_question(country_uz: str, q_num: int, lang: str) -> dict:
     """Pick a random question type, return {text, choices, correct_idx, answer_text}."""
+    # 1 in 3 chance of a mountain/river/lake/record question
+    if random.randint(1, 3) == 1:
+        geo = _build_geo_question(q_num, lang)
+        if geo:
+            return geo
+
     flag = COUNTRY_FLAGS.get(country_uz, '🌍')
     cname = get_country_name(country_uz, lang)
     num = f"<b>{q_num}/{QUIZ_SIZE}</b>"
@@ -175,8 +283,14 @@ def _build_variant_question(country_uz: str, q_num: int, lang: str) -> dict:
     return {'text': text, 'choices': choices, 'correct_idx': cidx, 'answer': answer}
 
 
-def _build_text_question(country_uz: str, q_num: int, lang: str) -> str:
-    """Pick a random question type for text quiz. Answer is always the country name."""
+def _build_text_question(country_uz: str, q_num: int, lang: str) -> tuple[str, str]:
+    """Returns (question_text, correct_uz). Answer is always a country name."""
+    # 1 in 3 chance of a mountain/river/lake question (answer = country name)
+    if random.randint(1, 3) == 1:
+        geo = _build_geo_text_question(q_num, lang)
+        if geo:
+            return geo  # (text, country_uz from geo fact)
+
     flag = COUNTRY_FLAGS.get(country_uz, '🌍')
     num = f"<b>{q_num}/{QUIZ_SIZE}</b>"
     ask = _qask(lang, 'ask_country')
@@ -196,14 +310,14 @@ def _build_text_question(country_uz: str, q_num: int, lang: str) -> str:
 
     if qtype == 'capital':
         cap = COUNTRIES_CAPITALS.get(country_uz, '?')
-        return f"❓ {num}\n\n🏙 <b>{html.escape(cap)}</b> {flag}\n\n{ask}"
+        return f"❓ {num}\n\n🏙 <b>{html.escape(cap)}</b> {flag}\n\n{ask}", country_uz
 
     elif qtype == 'flag':
-        return f"❓ {num}\n\n{flag}\n\n{ask}"
+        return f"❓ {num}\n\n{flag}\n\n{ask}", country_uz
 
     else:  # currency
         cur_name, cur_code = cur
-        return f"❓ {num}\n\n💵 <b>{html.escape(cur_name)}</b> (<code>{cur_code}</code>) {flag}\n\n{ask}"
+        return f"❓ {num}\n\n💵 <b>{html.escape(cur_name)}</b> (<code>{cur_code}</code>) {flag}\n\n{ask}", country_uz
 
 
 def _quiz_i18n(lang: str, key: str, **kw) -> str:
@@ -282,7 +396,9 @@ async def _send_variant_q(context: ContextTypes.DEFAULT_TYPE, chat_id: str) -> N
     cuz  = quiz['questions'][idx]
 
     q = _build_variant_question(cuz, idx + 1, lang)
-    quiz.update(correct_idx=q['correct_idx'], correct_uz=cuz,
+    # geo questions may have a different correct country than the quiz country
+    effective_correct_uz = q.get('correct_uz') or cuz
+    quiz.update(correct_idx=q['correct_idx'], correct_uz=effective_correct_uz,
                 correct_answer=q['answer'], answered=set())
 
     choices = q['choices']
@@ -439,9 +555,9 @@ async def _send_text_q(context: ContextTypes.DEFAULT_TYPE, chat_id: str) -> None
     lang = quiz['lang']
     cuz  = quiz['questions'][idx]
 
-    quiz.update(correct_uz=cuz, answered=False)
+    text, correct_uz = _build_text_question(cuz, idx + 1, lang)
+    quiz.update(correct_uz=correct_uz, answered=False)
 
-    text = _build_text_question(cuz, idx + 1, lang)
     await context.bot.send_message(chat_id=int(chat_id), text=text, parse_mode='HTML')
 
     if quiz.get('job'):
