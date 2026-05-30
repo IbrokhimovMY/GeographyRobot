@@ -26,6 +26,7 @@ from handlers.info import info_command, info_lookup
 from handlers.challenge import get_challenge, mark_solved
 from handlers.currency import get_currency_game
 from handlers.quiz import check_text_quiz_answer, start_variant_quiz, start_text_quiz
+from handlers.poll_quiz import check_custom_text_answer
 from handlers.invite import invite_command
 
 logger = logging.getLogger(__name__)
@@ -152,6 +153,10 @@ async def handle_guess(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     lang = _lang(update)
     in_group = _is_group(update)
     guess_uz = _normalize(text)
+
+    # --- Custom text test quiz ---
+    if await check_custom_text_answer(chat_id, user_id, username, text, update, context):
+        return
 
     # --- Text quiz (group quiz type 2) ---
     if await check_text_quiz_answer(chat_id, user_id, username, guess_uz, update, context):

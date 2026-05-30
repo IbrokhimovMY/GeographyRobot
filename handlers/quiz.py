@@ -776,9 +776,9 @@ async def stop_quiz(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 try: q['job'].schedule_removal()
                 except Exception: pass
             stopped = True
-    # also stop native poll quiz
+    # also stop poll/custom-text quizzes
     from handlers.poll_quiz import stop_poll_quiz
-    if stop_poll_quiz(chat_id):
+    if stop_poll_quiz(chat_id):   # handles both poll and custom_text
         stopped = True
     msg = _quiz_i18n(lang, 'stopped') if stopped else _quiz_i18n(lang, 'none')
     await update.message.reply_text(msg)
@@ -807,8 +807,11 @@ async def handle_quiz_mode_callback(update: Update,
         pass
 
     if mode == 'test':
-        from handlers.poll_quiz import start_poll_quiz
-        await start_poll_quiz(chat_id, lang, context)
+        from handlers.poll_quiz import start_poll_quiz, start_custom_text_quiz
+        if qtype == 'v1':
+            await start_poll_quiz(chat_id, lang, context)      # native polls
+        else:
+            await start_custom_text_quiz(chat_id, lang, context)  # text Q&A
     elif qtype == 'v1':
         await _launch_geo_variant(chat_id, lang, context)
     else:
