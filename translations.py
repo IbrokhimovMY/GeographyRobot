@@ -118,6 +118,15 @@ STRINGS = {
         'btn_currency': '💰 Valyuta',
         'btn_quiz1': '🎯 Viktorina (variant)',
         'btn_quiz2': '✍️ Viktorina (matn)',
+        'btn_invite': '🔗 Do\'stlarni taklif qil',
+        'invite_text': (
+            "🔗 <b>Do'stlarni taklif qilish</b>\n\n"
+            "Quyidagi havolani ulashing — do'stingiz botga qo'shilganda sizning "
+            "taklif hisobingiz oshadi!\n\n"
+            "<code>{link}</code>\n\n"
+            "👥 Siz taklif qilganlar: <b>{count}</b>"
+        ),
+        'referral_joined': "🎉 <b>{name}</b> sizning havolangiz orqali qo'shildi! +1 taklif 👥",
         'currency_question': "💰 <b>Valyuta oʻyini</b>\n\nQaysi mamlakat bu valyutadan foydalanadi?\n\n💵 <b>{currency}</b> (<code>{code}</code>)\n\nDavlat nomini yozing!",
         'timeout_currency': "⏰ Vaqt tugadi! Javob: <b>{country}</b>\nValyuta: {currency} ({code}).",
         'correct_currency': "✅ Toʻgʻri! <b>{country}</b> {flag}\nValyuta: {currency} ({code})",
@@ -241,6 +250,15 @@ STRINGS = {
         'btn_currency': '💰 Currency',
         'btn_quiz1': '🎯 Quiz (variants)',
         'btn_quiz2': '✍️ Quiz (text)',
+        'btn_invite': '🔗 Invite Friends',
+        'invite_text': (
+            "🔗 <b>Invite Friends</b>\n\n"
+            "Share this link — when your friend joins the bot, "
+            "your invite count goes up!\n\n"
+            "<code>{link}</code>\n\n"
+            "👥 You've invited: <b>{count}</b>"
+        ),
+        'referral_joined': "🎉 <b>{name}</b> joined via your link! +1 invite 👥",
         'currency_question': "💰 <b>Currency Game</b>\n\nWhich country uses this currency?\n\n💵 <b>{currency}</b> (<code>{code}</code>)\n\nType the country name!",
         'timeout_currency': "⏰ Time's up! Answer: <b>{country}</b>\nCurrency: {currency} ({code}).",
         'correct_currency': "✅ Correct! <b>{country}</b> {flag}\nCurrency: {currency} ({code})",
@@ -364,6 +382,15 @@ STRINGS = {
         'btn_currency': '💰 Валюта',
         'btn_quiz1': '🎯 Викторина (варианты)',
         'btn_quiz2': '✍️ Викторина (текст)',
+        'btn_invite': '🔗 Пригласить друзей',
+        'invite_text': (
+            "🔗 <b>Пригласить друзей</b>\n\n"
+            "Поделитесь ссылкой — когда друг присоединится к боту, "
+            "ваш счёт приглашений увеличится!\n\n"
+            "<code>{link}</code>\n\n"
+            "👥 Вы пригласили: <b>{count}</b>"
+        ),
+        'referral_joined': "🎉 <b>{name}</b> присоединился по вашей ссылке! +1 приглашение 👥",
         'currency_question': "💰 <b>Игра «Валюта»</b>\n\nКакая страна использует эту валюту?\n\n💵 <b>{currency}</b> (<code>{code}</code>)\n\nНапишите название страны!",
         'timeout_currency': "⏰ Время вышло! Ответ: <b>{country}</b>\nВалюта: {currency} ({code}).",
         'correct_currency': "✅ Правильно! <b>{country}</b> {flag}\nВалюта: {currency} ({code})",

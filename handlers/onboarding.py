@@ -17,7 +17,7 @@ from telegram.ext import (
     filters,
 )
 
-from database import get_display_name, get_user_lang, set_user_lang, set_display_name
+from database import get_display_name, get_user_lang, set_user_lang, set_display_name, add_referral
 from keyboards import ONBOARD_LANG_KB, default_kb
 from translations import t
 
@@ -37,8 +37,16 @@ def _uname(update: Update) -> str:
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    # ReplyKeyboardRemove and InlineKeyboardMarkup cannot share one message.
-    # First message dismisses the reply keyboard; second carries the inline buttons.
+    user_id = _uid(update)
+
+    # Detect referral parameter: /start ref_USERID
+    if context.args:
+        arg = context.args[0]
+        if arg.startswith('ref_'):
+            referrer_id = arg[4:]
+            if referrer_id != user_id:          # can't refer yourself
+                context.user_data['referrer_id'] = referrer_id
+
     await update.message.reply_text(
         t('uz', 'onboard_choose_lang'),
         reply_markup=ReplyKeyboardRemove(),
@@ -92,6 +100,21 @@ async def name_entered(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
 
     set_display_name(user_id, username, name)
     logger.info("Onboarding complete: %s → %s", user_id, name)
+
+    # Credit referrer if this user was invited
+    referrer_id = context.user_data.pop('referrer_id', None)
+    if referrer_id:
+        new_count = add_referral(referrer_id, user_id)
+        if new_count > 0:
+            lang_r = get_user_lang(referrer_id)
+            try:
+                await context.bot.send_message(
+                    chat_id=int(referrer_id),
+                    text=t(lang_r, 'referral_joined', name=html.escape(name)),
+                    parse_mode='HTML',
+                )
+            except Exception:
+                pass  # referrer may have blocked the bot
 
     in_group = update.effective_chat.type in ('group', 'supergroup')
     await update.message.reply_text(

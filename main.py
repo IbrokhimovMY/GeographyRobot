@@ -20,6 +20,7 @@ from handlers.info import info_command
 from handlers.challenge import get_challenge
 from handlers.currency import get_currency_game
 from handlers.quiz import start_variant_quiz, start_text_quiz, stop_quiz, handle_variant_callback
+from handlers.invite import invite_command
 from handlers.settings import (
     region_command, region_callback,
     difficulty_command, difficulty_callback,
@@ -60,6 +61,7 @@ def main() -> None:
     app.add_handler(CommandHandler('quiz1',      start_variant_quiz))
     app.add_handler(CommandHandler('quiz2',      start_text_quiz))
     app.add_handler(CommandHandler('stopquiz',   stop_quiz))
+    app.add_handler(CommandHandler('invite',     invite_command))
 
     # Utility commands
     app.add_handler(CommandHandler('stats',      stats))

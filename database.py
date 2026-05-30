@@ -94,7 +94,9 @@ def init_db() -> None:
                 streak           INTEGER DEFAULT 0,
                 best_streak      INTEGER DEFAULT 0,
                 difficulty       TEXT DEFAULT 'normal',
-                continent_filter TEXT DEFAULT 'all'
+                continent_filter TEXT DEFAULT 'all',
+                referrals        INTEGER DEFAULT 0,
+                referred_by      TEXT DEFAULT ''
             )
         ''')
         if not USE_PG:
@@ -107,6 +109,8 @@ def init_db() -> None:
                 ('best_streak', 'INTEGER DEFAULT 0'),
                 ('difficulty', "TEXT DEFAULT 'normal'"),
                 ('continent_filter', "TEXT DEFAULT 'all'"),
+                ('referrals', 'INTEGER DEFAULT 0'),
+                ('referred_by', "TEXT DEFAULT ''"),
             ]:
                 try:
                     conn.execute(f'ALTER TABLE users ADD COLUMN {col} {definition}')
@@ -257,3 +261,22 @@ def get_top_users(limit: int = 10) -> list:
                LIMIT ?''',
             (limit,),
         ).fetchall()
+
+
+def add_referral(referrer_id: str, new_user_id: str) -> int:
+    """Credit referrer +1 and mark new_user as referred. Returns new referral count."""
+    with _get_conn() as conn:
+        # Only count once per new user
+        row = _exec(conn, 'SELECT referred_by FROM users WHERE user_id = ?', (new_user_id,)).fetchone()
+        if row and row[0]:
+            return 0  # already referred
+        _exec(conn, "UPDATE users SET referred_by = ? WHERE user_id = ?", (referrer_id, new_user_id))
+        _exec(conn, "UPDATE users SET referrals = referrals + 1 WHERE user_id = ?", (referrer_id,))
+        row2 = _exec(conn, 'SELECT referrals FROM users WHERE user_id = ?', (referrer_id,)).fetchone()
+    return row2[0] if row2 else 1
+
+
+def get_referral_count(user_id: str) -> int:
+    with _get_conn() as conn:
+        row = _exec(conn, 'SELECT referrals FROM users WHERE user_id = ?', (user_id,)).fetchone()
+    return row[0] if row else 0

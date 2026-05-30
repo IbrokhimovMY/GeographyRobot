@@ -11,7 +11,7 @@ def default_kb(lang: str, in_group: bool = False) -> ReplyKeyboardMarkup:
         [t(lang, 'btn_quiz1'), t(lang, 'btn_quiz2')],
         [t(lang, 'btn_top'), t(lang, 'btn_region'), t(lang, 'btn_difficulty')],
         [t(lang, 'btn_daily_facts'), t(lang, 'btn_info'), t(lang, 'btn_reset')],
-        [t(lang, 'btn_help')],
+        [t(lang, 'btn_invite'), t(lang, 'btn_help')],
     ]
     # WebApp buttons are not supported in groups — only add in private chats
     if WEBAPP_URL and not in_group:
