@@ -66,23 +66,22 @@ def _make_choices(correct_uz: str, n: int = 4) -> tuple[list[str], int]:
     return [COUNTRIES_CAPITALS.get(c, '?') for c in bucket], idx
 
 
-def _avg_time(d: dict) -> float:
-    times = d.get('times', [])
-    return sum(times) / len(times) if times else 999.0
+def _total_time(d: dict) -> float:
+    return sum(d.get('times', [])) or 999.0
 
 
 def _scoreboard(scores: dict) -> str:
     if not scores:
         return "—"
     medals = ['🥇', '🥈', '🥉']
-    # Primary: score desc; secondary: average response time asc (tiebreaker)
+    # Primary: score desc; secondary: total response time asc (tiebreaker)
     rows = sorted(scores.items(),
-                  key=lambda x: (-x[1]['score'], _avg_time(x[1])))
+                  key=lambda x: (-x[1]['score'], _total_time(x[1])))
     lines = []
     for i, (_, d) in enumerate(rows[:10]):
         med = medals[i] if i < 3 else f"{i+1}."
-        avg = _avg_time(d)
-        time_str = f"  ⏱ {avg:.1f}s" if d.get('times') else ""
+        total = sum(d.get('times', []))
+        time_str = f"  ⏱ {total:.1f}s" if d.get('times') else ""
         lines.append(f"{med} <b>{html.escape(d['name'])}</b> — {d['score']}{time_str}")
     return '\n'.join(lines)
 
@@ -538,9 +537,9 @@ async def handle_variant_callback(update: Update, context: ContextTypes.DEFAULT_
         quiz['scores'].setdefault(user_id, {'name': username, 'score': 0, 'times': []})
         quiz['scores'][user_id]['score'] += 1
         quiz['scores'][user_id]['times'].append(elapsed)
-        await query.answer(f"✅ Correct! +1  ({elapsed}s)")
+        await query.answer("✅ Correct! +1")
     else:
-        await query.answer(f"❌ Wrong!  ({elapsed}s)")
+        await query.answer("❌ Wrong!")
 
 
 async def _variant_timeout(context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -709,13 +708,11 @@ async def check_text_quiz_answer(
     flag = COUNTRY_FLAGS.get(cuz, '🌍')
     name = update.effective_user.first_name or username
 
-    time_label = {'uz': f"⏱ {elapsed}s", 'ru': f"⏱ {elapsed}с", 'en': f"⏱ {elapsed}s"}.get(lang, f"⏱ {elapsed}s")
     await update.message.reply_text(
         _quiz_i18n(lang, 'first_correct',
                    name=html.escape(name),
                    flag=flag,
-                   country=html.escape(get_country_name(cuz, lang)))
-        + f"  {time_label}",
+                   country=html.escape(get_country_name(cuz, lang))),
         parse_mode='HTML',
     )
 

@@ -352,6 +352,12 @@ async def handle_guess(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
                     )
         return
 
+    # Don't show "no active game" if a text quiz is running — wrong answers are silent
+    from handlers.quiz import active_text_quizzes
+    from handlers.poll_quiz import active_custom_text_quizzes
+    if chat_id in active_text_quizzes or chat_id in active_custom_text_quizzes:
+        return
+
     if not in_group:
         await update.message.reply_text(t(lang, 'no_active_game'), reply_markup=default_kb(lang, in_group))
 

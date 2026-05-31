@@ -28,20 +28,20 @@ _LETTERS = ['A', 'B', 'C', 'D', 'E']
 
 # ─── shared helpers ───────────────────────────────────────────────────────────
 
-def _avg(d: dict) -> float:
-    t = d.get('times', [])
-    return sum(t) / len(t) if t else 999.0
+def _total(d: dict) -> float:
+    return sum(d.get('times', [])) or 999.0
 
 
 def _scoreboard(scores: dict) -> str:
     if not scores:
         return "—"
     medals = ['🥇', '🥈', '🥉']
-    rows = sorted(scores.items(), key=lambda x: (-x[1]['score'], _avg(x[1])))
+    rows = sorted(scores.items(), key=lambda x: (-x[1]['score'], _total(x[1])))
     lines = []
     for i, (_, d) in enumerate(rows[:10]):
         med = medals[i] if i < 3 else f"{i+1}."
-        t = f"  ⏱{_avg(d):.1f}s" if d.get('times') else ""
+        total = sum(d.get('times', []))
+        t = f"  ⏱ {total:.1f}s" if d.get('times') else ""
         lines.append(f"{med} <b>{html.escape(d['name'])}</b> — {d['score']}{t}")
     return '\n'.join(lines)
 
@@ -344,8 +344,7 @@ async def check_custom_text_answer(
     name = update.effective_user.first_name or username
 
     await update.message.reply_text(
-        f"✅ <b>{html.escape(name)}</b> +1  ⏱{elapsed}s\n"
-        f"🎯 <i>{html.escape(correct_display)}</i>",
+        f"✅ <b>{html.escape(name)}</b> +1 · {flag} <b>{html.escape(correct_display)}</b>",
         parse_mode='HTML',
     )
 
