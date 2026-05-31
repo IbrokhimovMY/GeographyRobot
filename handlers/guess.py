@@ -15,6 +15,7 @@ from keyboards import default_kb, guess_kb, map_kb
 from state import (
     active_country_games, active_capital_games, active_flag_games, active_currency_games,
     cancel_capital_job, cancel_country_job, cancel_flag_job, cancel_currency_job,
+    user_game_chats,
 )
 from translations import t, get_country_name
 
@@ -258,6 +259,7 @@ async def handle_guess(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         if guess_uz.lower() == correct_uz.lower():
             cancel_country_job(chat_id)
             del active_country_games[chat_id]
+            user_game_chats.pop(user_id, None)
             name = _player_name(update)
             correct_display = get_country_name(correct_uz, lang)
             record_result(user_id, username, 'country', 'correct')
@@ -287,6 +289,7 @@ async def handle_guess(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             if game['attempts'] >= MAX_ATTEMPTS:
                 cancel_country_job(chat_id)
                 del active_country_games[chat_id]
+            user_game_chats.pop(user_id, None)
                 record_result(user_id, username, 'country', 'wrong')
                 reset_streak(user_id, username)
                 correct_display = get_country_name(correct_uz, lang)
@@ -400,6 +403,7 @@ async def handle_webapp_data(update: Update, context: ContextTypes.DEFAULT_TYPE)
         is_challenge = game.get('challenge', False)
         record_result(user_id, username, 'country', 'correct')
         del active_country_games[chat_id]
+            user_game_chats.pop(user_id, None)
         streak_sfx = _streak_suffix(user_id, username, lang)
         if is_challenge:
             mark_solved(user_id)
@@ -419,6 +423,7 @@ async def handle_webapp_data(update: Update, context: ContextTypes.DEFAULT_TYPE)
         if game['attempts'] >= MAX_ATTEMPTS:
             cancel_country_job(chat_id)
             del active_country_games[chat_id]
+            user_game_chats.pop(user_id, None)
             record_result(user_id, username, 'country', 'wrong')
             reset_streak(user_id, username)
             await context.bot.send_message(

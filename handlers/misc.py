@@ -93,6 +93,11 @@ async def reset(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     cancel_flag_job(chat_id)
     cancel_currency_job(chat_id)
     active_country_games.pop(chat_id, None)
+    # Clear user→chat game mapping for this chat
+    from state import user_game_chats
+    for uid, cid in list(user_game_chats.items()):
+        if cid == chat_id:
+            del user_game_chats[uid]
     active_capital_games.pop(chat_id, None)
     active_flag_games.pop(chat_id, None)
     active_currency_games.pop(chat_id, None)

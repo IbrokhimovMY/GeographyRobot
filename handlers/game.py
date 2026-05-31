@@ -172,6 +172,11 @@ async def timeout_country_guess(context: ContextTypes.DEFAULT_TYPE) -> None:
     lang = data.get('lang', 'uz')
     if chat_id in active_country_games and active_country_games[chat_id]['country'] == country_uz:
         del active_country_games[chat_id]
+        # Clear user→chat mapping (user_id not available here, iterate to find)
+        for uid, cid in list(user_game_chats.items()):
+            if cid == chat_id:
+                del user_game_chats[uid]
+                break
         country_display = get_country_name(country_uz, lang)
         await context.bot.send_message(
             chat_id=int(chat_id),
