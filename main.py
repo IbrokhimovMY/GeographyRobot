@@ -1,5 +1,5 @@
 import logging
-from datetime import time
+from datetime import time, timezone, timedelta
 
 import telegram
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, PollAnswerHandler, filters
@@ -14,7 +14,7 @@ from handlers.misc import (
     stats, top, reset, help_command,
     language_command, language_callback,
 )
-from handlers.facts import daily_facts_command, send_daily_facts
+from handlers.facts import daily_facts_command, send_daily_facts, test_fact_command
 from handlers.flag import get_flag
 from handlers.info import info_command
 from handlers.challenge import get_challenge
@@ -75,6 +75,7 @@ def main() -> None:
     app.add_handler(CommandHandler('region',     region_command))
     app.add_handler(CommandHandler('difficulty', difficulty_command))
     app.add_handler(CommandHandler('dailyfacts', daily_facts_command))
+    app.add_handler(CommandHandler('testfact',   test_fact_command))
 
     # Inline keyboard callbacks
     app.add_handler(CallbackQueryHandler(language_callback,    pattern=r'^lang_'))
@@ -88,8 +89,9 @@ def main() -> None:
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_guess))
     app.add_handler(MessageHandler(filters.StatusUpdate.WEB_APP_DATA, handle_webapp_data))
 
-    # Scheduled jobs
-    app.job_queue.run_daily(send_daily_facts, time=time(hour=9, minute=0))
+    # Scheduled jobs — 9:00 AM Uzbekistan time (UTC+5)
+    UZT = timezone(timedelta(hours=5))
+    app.job_queue.run_daily(send_daily_facts, time=time(hour=9, minute=0, tzinfo=UZT))
 
     app.run_polling(allowed_updates=telegram.Update.ALL_TYPES)
 

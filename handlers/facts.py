@@ -80,26 +80,58 @@ async def daily_facts_command(update: Update, context: ContextTypes.DEFAULT_TYPE
     logger.info("Daily facts toggled: user=%s → %s", user_id, new_state)
 
 
+async def _send_fact_to_user(bot, user_id: str, lang: str) -> bool:
+    """Pick a random country, fetch fact, send to user. Returns True on success."""
+    country_uz = random.choice(COUNTRIES)
+    country_display = html.escape(get_country_name(country_uz, lang))
+
+    fact = await _fetch_wiki_fact(country_uz, lang)
+    if not fact:
+        # Try a different country if first fails
+        for _ in range(3):
+            country_uz = random.choice(COUNTRIES)
+            fact = await _fetch_wiki_fact(country_uz, lang)
+            if fact:
+                country_display = html.escape(get_country_name(country_uz, lang))
+                break
+
+    if not fact:
+        logger.warning("Wikipedia fact fetch failed for user=%s (tried 4 countries)", user_id)
+        return False
+
+    text = t(lang, 'daily_fact', country=country_display, fact=html.escape(fact))
+    try:
+        await bot.send_message(chat_id=int(user_id), text=text, parse_mode='HTML')
+        return True
+    except Exception as exc:
+        logger.warning("Could not send daily fact to %s: %s", user_id, exc)
+        return False
+
+
 async def send_daily_facts(context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Job: send one random geography fact to every subscriber."""
+    """Scheduled job: send geography fact to every subscriber."""
     subscribers = get_daily_facts_subscribers()
+    logger.info("Daily facts job: %d subscriber(s)", len(subscribers))
     if not subscribers:
         return
 
-    country_uz = random.choice(COUNTRIES)
-
+    ok = 0
     for user_id, lang in subscribers:
-        country_display = html.escape(get_country_name(country_uz, lang))
-        fact = await _fetch_wiki_fact(country_uz, lang)
-        if not fact:
-            logger.warning("No fact for %s, skipping user %s", country_uz, user_id)
-            continue
-        text = t(lang, 'daily_fact', country=country_display, fact=html.escape(fact))
-        try:
-            await context.bot.send_message(
-                chat_id=int(user_id),
-                text=text,
-                parse_mode='HTML',
-            )
-        except Exception as exc:
-            logger.warning("Could not send daily fact to %s: %s", user_id, exc)
+        if await _send_fact_to_user(context.bot, user_id, lang):
+            ok += 1
+    logger.info("Daily facts sent: %d/%d", ok, len(subscribers))
+
+
+async def test_fact_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Send a test fact to the caller right now (no need to wait until 9 AM)."""
+    user_id = str(update.effective_user.id)
+    lang = get_user_lang(user_id)
+    await update.message.reply_text("⏳ Fakt yuklanmoqda…" if lang == 'uz'
+                                    else "⏳ Loading fact…")
+    success = await _send_fact_to_user(context.bot, user_id, lang)
+    if not success:
+        err = {"uz": "❌ Fakt yuklab bo'lmadi. Wikipedia API javob bermadi.",
+               "ru": "❌ Не удалось загрузить факт.",
+               "en": "❌ Could not load fact. Wikipedia API unavailable."}.get(lang, "❌")
+        await update.message.reply_text(err)
+    logger.info("Test fact: user=%s success=%s", user_id, success)
