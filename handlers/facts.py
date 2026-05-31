@@ -20,18 +20,24 @@ _UZ_TO_EN: dict[str, str] = {uz: en for en, uz in MAP_EN_TO_UZ.items()}
 _UZ_TO_EN.update(COUNTRY_NAMES_EN)
 
 
+# Wikipedia requires a descriptive User-Agent — cloud IPs are blocked without it
+_WIKI_HEADERS = {
+    "User-Agent": "MYGeoRobot/1.0 (Geography quiz Telegram bot; ibrokhimovmy@gmail.com)",
+    "Accept": "application/json",
+}
+
+
 async def _fetch_wiki_fact(country_uz: str, lang: str) -> str | None:
-    """Return a Wikipedia extract (1-2 sentences). Always tries English first for reliability."""
+    """Return a Wikipedia extract (1-2 sentences)."""
     country_en = _UZ_TO_EN.get(country_uz, country_uz)
     title = urllib.parse.quote(country_en.replace(' ', '_'))
 
-    # Always try English Wikipedia (most complete); also try user's language if not English
     langs_to_try = ['en'] if lang == 'en' else ['en', lang]
 
-    async with httpx.AsyncClient(timeout=15, follow_redirects=True) as client:
+    async with httpx.AsyncClient(timeout=15, follow_redirects=True,
+                                  headers=_WIKI_HEADERS) as client:
         for wiki_lang in langs_to_try:
             if wiki_lang == lang and lang != 'en':
-                # For non-English, use the localised title from COUNTRY_NAMES_RU/EN if available
                 from translations import COUNTRY_NAMES_RU
                 local_name = (COUNTRY_NAMES_RU if lang == 'ru' else COUNTRY_NAMES_EN).get(country_uz, country_en)
                 local_title = urllib.parse.quote(local_name.replace(' ', '_'))
@@ -56,7 +62,8 @@ async def fetch_wiki_sentences(country_uz: str, lang: str, max_sentences: int = 
     title = urllib.parse.quote(country_en.replace(' ', '_'))
     url = f"https://en.wikipedia.org/api/rest_v1/page/summary/{title}"
     try:
-        async with httpx.AsyncClient(timeout=15, follow_redirects=True) as client:
+        async with httpx.AsyncClient(timeout=15, follow_redirects=True,
+                                      headers=_WIKI_HEADERS) as client:
             resp = await client.get(url)
             if resp.status_code == 200:
                 extract = resp.json().get('extract', '').strip()
