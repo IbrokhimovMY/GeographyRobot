@@ -172,23 +172,35 @@ async def fetch_wiki_sentences(country_uz: str, lang: str, max_sentences: int = 
 # ─── Bot commands ─────────────────────────────────────────────────────────────
 
 async def daily_facts_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Toggle daily-facts subscription."""
+    """Toggle daily-facts subscription. Works in private chats AND groups."""
     user_id = str(update.effective_user.id)
     username = update.effective_user.username or update.effective_user.first_name or user_id
-    lang = get_user_lang(user_id)
+    lang = get_user_lang(user_id)   # language = person who pressed button
     in_group = update.effective_chat.type in ('group', 'supergroup')
 
-    new_state = toggle_daily_facts(user_id, username)
+    if in_group:
+        # Subscribe the GROUP chat so the whole group gets daily facts
+        sub_id   = str(update.effective_chat.id)
+        sub_name = update.effective_chat.title or sub_id
+        # Store the language for this group subscription
+        from database import set_user_lang
+        set_user_lang(sub_id, sub_name, lang)
+    else:
+        sub_id   = user_id
+        sub_name = username
+
+    new_state = toggle_daily_facts(sub_id, sub_name)
     key = 'daily_facts_on' if new_state else 'daily_facts_off'
     await update.message.reply_text(t(lang, key), reply_markup=default_kb(lang, in_group))
-    logger.info("Daily facts toggled: user=%s → %s", user_id, new_state)
+    logger.info("Daily facts toggled: chat=%s (%s) → %s",
+                sub_id, 'group' if in_group else 'private', new_state)
 
 
-async def _send_daily_fact_to(bot, user_id: str, lang: str) -> bool:
-    """Fetch an 'On This Day' fact and send to user. Returns True on success."""
+async def _send_daily_fact_to(bot, chat_id: str, lang: str) -> bool:
+    """Fetch an 'On This Day' fact and send to chat (private or group)."""
     fact = await _fetch_onthisday(lang)
     if not fact:
-        logger.warning("No OnThisDay fact found for user=%s lang=%s", user_id, lang)
+        logger.warning("No OnThisDay fact found for chat=%s lang=%s", chat_id, lang)
         return False
 
     title = {
@@ -199,10 +211,10 @@ async def _send_daily_fact_to(bot, user_id: str, lang: str) -> bool:
 
     text = f"{title}\n\n{fact}"
     try:
-        await bot.send_message(chat_id=int(user_id), text=text, parse_mode='HTML')
+        await bot.send_message(chat_id=int(chat_id), text=text, parse_mode='HTML')
         return True
     except Exception as exc:
-        logger.warning("Could not send daily fact to %s: %s", user_id, exc)
+        logger.warning("Could not send daily fact to %s: %s", chat_id, exc)
         return False
 
 
