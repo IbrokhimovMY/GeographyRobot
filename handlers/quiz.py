@@ -586,7 +586,7 @@ async def _variant_timeout(context: ContextTypes.DEFAULT_TYPE) -> None:
         logger.error("variant_timeout send error: %s", e)
 
     quiz['current'] += 1
-    if quiz['current'] >= QUIZ_SIZE:
+    if quiz['current'] >= len(quiz['questions']):
         await _finish(context, chat_id, 'variant')
     else:
         # Schedule as a NEW separate job — never call _send_variant_q directly
@@ -610,7 +610,7 @@ async def _variant_q_job(context: ContextTypes.DEFAULT_TYPE) -> None:
         quiz = active_variant_quizzes.get(chat_id)
         if quiz:
             quiz['current'] += 1
-            if quiz['current'] >= QUIZ_SIZE:
+            if quiz['current'] >= len(quiz['questions']):
                 await _finish(context, chat_id, 'variant')
             else:
                 context.application.job_queue.run_once(
@@ -716,7 +716,7 @@ async def check_text_quiz_answer(
     )
 
     quiz['current'] += 1
-    if quiz['current'] >= QUIZ_SIZE:
+    if quiz['current'] >= len(quiz['questions']):
         await _finish(context, chat_id, 'text')
     else:
         next_idx = quiz['current']
@@ -738,7 +738,7 @@ async def _next_text_q_job(context: ContextTypes.DEFAULT_TYPE) -> None:
         quiz = active_text_quizzes.get(chat_id)
         if quiz:
             quiz['current'] += 1
-            if quiz['current'] >= QUIZ_SIZE:
+            if quiz['current'] >= len(quiz['questions']):
                 await _finish(context, chat_id, 'text')
             else:
                 context.application.job_queue.run_once(
@@ -771,7 +771,7 @@ async def _text_timeout(context: ContextTypes.DEFAULT_TYPE) -> None:
         logger.error("text_timeout send error: %s", e)
 
     quiz['current'] += 1
-    if quiz['current'] >= QUIZ_SIZE:
+    if quiz['current'] >= len(quiz['questions']):
         await _finish(context, chat_id, 'text')
     else:
         next_idx = quiz['current']

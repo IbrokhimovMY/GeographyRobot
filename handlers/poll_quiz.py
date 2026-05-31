@@ -131,7 +131,10 @@ async def _send_poll_question(context: ContextTypes.DEFAULT_TYPE,
     shuffled_opts, new_correct = _shuffled_options(q, lang)
     explanation = q.get('explanation', {}).get(lang, q.get('explanation', {}).get('uz', ''))
 
-    quiz.update(poll_id=None, answered_poll=set(), question_time=time.time())
+    # Save correct index BEFORE sending so handle_poll_answer can check it
+    quiz.update(poll_id=None, answered_poll=set(),
+                question_time=time.time(),
+                current_correct_idx=new_correct)
 
     try:
         poll_secs = quiz.get('timeout_secs', POLL_SECS)
