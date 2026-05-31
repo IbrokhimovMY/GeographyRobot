@@ -625,13 +625,17 @@ async def _variant_q_job(context: ContextTypes.DEFAULT_TYPE) -> None:
 # ──────────────────────────────────────────────────────────────────────────────
 
 async def start_text_quiz(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    chat_id = _chat(update)
     lang = get_user_lang(_uid(update))
-    await _launch_geo_text(chat_id, lang, context)
+    await update.message.reply_text(
+        _DIFF_ASK.get(lang, _DIFF_ASK['en']),
+        reply_markup=_v2_kb(lang),
+    )
 
 
 async def _launch_geo_text(chat_id: str, lang: str, secs: int,
                             context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not isinstance(secs, (int, float)):   # guard against accidental wrong arg
+        secs = _DEFAULT_SECS
     from handlers.poll_quiz import active_poll_quizzes, active_custom_text_quizzes
     if chat_id in active_variant_quizzes or chat_id in active_text_quizzes \
             or chat_id in active_poll_quizzes or chat_id in active_custom_text_quizzes:
