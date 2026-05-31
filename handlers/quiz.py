@@ -26,12 +26,13 @@ logger = logging.getLogger(__name__)
 
 QUIZ_SIZE = 20
 
-# Variant quiz — clicking a button is fast
+# Variant quiz difficulty timers
 _DIFF_SECS_V1 = {'easy': 20, 'med': 15, 'hard': 10}
-# Text quiz — typing takes longer
-_DIFF_SECS_V2 = {'easy': 30, 'med': 20, 'hard': 15}
 
-_DIFF_SECS   = _DIFF_SECS_V1   # used for label building (variant default)
+# Text quiz: fixed 25 seconds, questions progress from easy → hard automatically
+TEXT_QUIZ_SECS = 25
+
+_DIFF_SECS    = _DIFF_SECS_V1
 _DEFAULT_SECS = 15
 
 # chat_id → state
@@ -54,6 +55,39 @@ def _uname(u: Update) -> str:
 
 def _countries_with_capitals() -> list[str]:
     return [c for c in COUNTRIES if COUNTRIES_CAPITALS.get(c)]
+
+
+def _progressive_questions(total: int = QUIZ_SIZE) -> list[str]:
+    """
+    Build a question list that goes easy → medium → hard.
+    Easy  = Europe (famous, well-known capitals)
+    Medium = Asia + Americas
+    Hard   = Africa + Oceania (less familiar)
+    """
+    has_cap = set(c for c in COUNTRIES if COUNTRIES_CAPITALS.get(c))
+
+    easy   = [c for c in has_cap if COUNTRY_CONTINENTS.get(c) == 'europe']
+    medium = [c for c in has_cap if COUNTRY_CONTINENTS.get(c) in
+              ('asia', 'north_america', 'south_america')]
+    hard   = [c for c in has_cap if COUNTRY_CONTINENTS.get(c) in ('africa', 'oceania')]
+
+    n_easy   = max(1, total * 35 // 100)   # ~35% easy
+    n_medium = max(1, total * 35 // 100)   # ~35% medium
+    n_hard   = total - n_easy - n_medium   # remaining hard
+
+    eq = random.sample(easy,   min(n_easy,   len(easy)))
+    mq = random.sample(medium, min(n_medium, len(medium)))
+    hq = random.sample(hard,   min(n_hard,   len(hard)))
+
+    # Pad with random countries if any pool was too small
+    pool = eq + mq + hq
+    if len(pool) < total:
+        extras = random.sample(
+            [c for c in has_cap if c not in pool],
+            min(total - len(pool), len(has_cap) - len(pool))
+        )
+        pool += extras
+    return pool
 
 
 def _make_choices(correct_uz: str, n: int = 4) -> tuple[list[str], int]:
@@ -341,7 +375,7 @@ def _quiz_i18n(lang: str, key: str, **kw) -> str:
     strings = {
         'uz': {
             'variant_start': "🎮 <b>Viktorina boshlanadi!</b>\n20 ta savol · Har biriga 15 soniya\nVariantlardan birini tanlang 👇",
-            'text_start':    "🎮 <b>Viktorina boshlanadi!</b>\n20 ta savol · Har biriga 15 soniya\nJavobni yozing, birinchi to'g'ri javob ball oladi!",
+            'text_start':    f"🎮 <b>Viktorina boshlanadi!</b>\n20 ta savol · Har biriga {TEXT_QUIZ_SECS} soniya\n📈 Savol osondan qiyinga o'zgarib boradi\nJavobni yozing, birinchi to'g'ri javob ball oladi!",
             'correct_ans':   "✅ {label} <b>{answer}</b>",
             'first_correct': "✅ <b>{name}</b> +1 · {flag} <b>{country}</b>",
             'timeout':       "⏰ {flag} <b>{country}</b>",
@@ -353,7 +387,7 @@ def _quiz_i18n(lang: str, key: str, **kw) -> str:
         },
         'ru': {
             'variant_start': "🎮 <b>Квиз начинается!</b>\n20 вопросов · 15 секунд на каждый\nВыберите один из вариантов 👇",
-            'text_start':    "🎮 <b>Квиз начинается!</b>\n20 вопросов · 15 секунд на каждый\nПишите ответ, первый правильный получает балл!",
+            'text_start':    f"🎮 <b>Квиз начинается!</b>\n20 вопросов · {TEXT_QUIZ_SECS} секунд на каждый\n📈 Вопросы усложняются по мере прохождения\nПишите ответ, первый правильный получает балл!",
             'correct_ans':   "✅ {label} <b>{answer}</b>",
             'first_correct': "✅ <b>{name}</b> +1 · {flag} <b>{country}</b>",
             'timeout':       "⏰ {flag} <b>{country}</b>",
@@ -365,7 +399,7 @@ def _quiz_i18n(lang: str, key: str, **kw) -> str:
         },
         'en': {
             'variant_start': "🎮 <b>Quiz starts!</b>\n20 questions · 15 seconds each\nPick one of the options 👇",
-            'text_start':    "🎮 <b>Quiz starts!</b>\n20 questions · 15 seconds each\nType your answer — first correct wins a point!",
+            'text_start':    f"🎮 <b>Quiz starts!</b>\n20 questions · {TEXT_QUIZ_SECS} seconds each\n📈 Questions get harder as you go\nType your answer — first correct wins a point!",
             'correct_ans':   "✅ {label} <b>{answer}</b>",
             'first_correct': "✅ <b>{name}</b> +1 · {flag} <b>{country}</b>",
             'timeout':       "⏰ {flag} <b>{country}</b>",
@@ -432,14 +466,6 @@ async def start_variant_quiz(update: Update, context: ContextTypes.DEFAULT_TYPE)
     await update.message.reply_text(
         _DIFF_ASK.get(lang, _DIFF_ASK['en']),
         reply_markup=_v1_kb(lang),
-    )
-
-
-async def start_text_quiz(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    lang = get_user_lang(_uid(update))
-    await update.message.reply_text(
-        _DIFF_ASK.get(lang, _DIFF_ASK['en']),
-        reply_markup=_v2_kb(lang),
     )
 
 
@@ -624,25 +650,24 @@ async def _variant_q_job(context: ContextTypes.DEFAULT_TYPE) -> None:
 # ──────────────────────────────────────────────────────────────────────────────
 
 async def start_text_quiz(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Text quiz starts immediately with progressive difficulty (no selector)."""
+    chat_id = _chat(update)
     lang = get_user_lang(_uid(update))
-    await update.message.reply_text(
-        _DIFF_ASK.get(lang, _DIFF_ASK['en']),
-        reply_markup=_v2_kb(lang),
-    )
+    await _launch_geo_text(chat_id, lang, TEXT_QUIZ_SECS, context)
 
 
 async def _launch_geo_text(chat_id: str, lang: str, secs: int,
                             context: ContextTypes.DEFAULT_TYPE) -> None:
-    if not isinstance(secs, (int, float)):   # guard against accidental wrong arg
-        secs = _DEFAULT_SECS
+    if not isinstance(secs, (int, float)):
+        secs = TEXT_QUIZ_SECS
     from handlers.poll_quiz import active_poll_quizzes, active_custom_text_quizzes
     if chat_id in active_variant_quizzes or chat_id in active_text_quizzes \
             or chat_id in active_poll_quizzes or chat_id in active_custom_text_quizzes:
         await context.bot.send_message(chat_id=int(chat_id), text=_quiz_i18n(lang, 'already'))
         return
 
-    pool = _countries_with_capitals()
-    questions = random.sample(pool, min(QUIZ_SIZE, len(pool)))
+    # Progressive questions: easy → medium → hard
+    questions = _progressive_questions(QUIZ_SIZE)
     active_text_quizzes[chat_id] = {
         'questions': questions, 'current': 0,
         'scores': {}, 'answered': False,
@@ -855,10 +880,9 @@ async def handle_quiz_diff_callback(update: Update,
         else:
             await _launch_geo_variant(chat_id, lang, secs, context)
 
-    elif parts[0] == 'q2' and len(parts) == 2:
-        diff = parts[1]
-        secs = _DIFF_SECS_V2.get(diff, _DEFAULT_SECS)
-        dl   = _diff_labels(lang, _DIFF_SECS_V2)[diff]
-        try: await query.edit_message_text(f"✅ {dl}")
+    elif parts[0] == 'q2':
+        # Text quiz now starts directly from button (no difficulty selector)
+        # This branch handles any stale q2: callbacks gracefully
+        try: await query.edit_message_text("✅")
         except Exception: pass
-        await _launch_geo_text(chat_id, lang, secs, context)
+        await _launch_geo_text(chat_id, lang, TEXT_QUIZ_SECS, context)
