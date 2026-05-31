@@ -1052,10 +1052,26 @@ async function startMapGame() {
     _mapSyncedFromBot = true;
   } else {
     _mapSyncedFromBot = false;
-    const pool = (state.region === 'all' ? GAME_DATA : GAME_DATA.filter(c=>c.continent===state.region))
-      .filter(c => c.iso2 && ISO2_NUM[c.iso2]);
-    if (!pool.length) { showToast('No countries!'); return; }
-    country = pool[Math.floor(Math.random()*pool.length)];
+    // Always try to sync with an active bot country game first
+    const uid = tg?.initDataUnsafe?.user?.id;
+    if (uid) {
+      try {
+        const d = await fetch(`/api/game?user_id=${uid}`).then(r => r.json());
+        if (d.active && d.country_uz) {
+          const c = GAME_DATA.find(x => x.key === d.country_uz);
+          if (c && c.iso2 && ISO2_NUM[c.iso2]) {
+            country = c;
+            _mapSyncedFromBot = true;
+          }
+        }
+      } catch(e) {}
+    }
+    if (!country) {
+      const pool = (state.region === 'all' ? GAME_DATA : GAME_DATA.filter(c=>c.continent===state.region))
+        .filter(c => c.iso2 && ISO2_NUM[c.iso2]);
+      if (!pool.length) { showToast('No countries!'); return; }
+      country = pool[Math.floor(Math.random()*pool.length)];
+    }
   }
   const duration = TIMERS.map[state.difficulty];
   _mapGame = {
@@ -1094,7 +1110,7 @@ async function renderMap(target) {
   svg.selectAll('path')
     .data(countries.features)
     .enter().append('path')
-    .attr('class', 'country-path')
+    .attr('class', d => 'country-path' + (d.id === targetNum ? ' target' : ''))
     .attr('d', path)
     .attr('data-num', d => d.id)
     .on('click', function(event, d) { onMapClick(d.id, this); });
