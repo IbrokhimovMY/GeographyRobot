@@ -289,7 +289,7 @@ async def handle_guess(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             if game['attempts'] >= MAX_ATTEMPTS:
                 cancel_country_job(chat_id)
                 del active_country_games[chat_id]
-            user_game_chats.pop(user_id, None)
+                user_game_chats.pop(user_id, None)
                 record_result(user_id, username, 'country', 'wrong')
                 reset_streak(user_id, username)
                 correct_display = get_country_name(correct_uz, lang)
@@ -403,7 +403,7 @@ async def handle_webapp_data(update: Update, context: ContextTypes.DEFAULT_TYPE)
         is_challenge = game.get('challenge', False)
         record_result(user_id, username, 'country', 'correct')
         del active_country_games[chat_id]
-            user_game_chats.pop(user_id, None)
+        user_game_chats.pop(user_id, None)
         streak_sfx = _streak_suffix(user_id, username, lang)
         if is_challenge:
             mark_solved(user_id)
