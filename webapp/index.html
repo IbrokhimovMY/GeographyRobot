@@ -1041,14 +1041,17 @@ const NUM_ISO2 = Object.fromEntries(Object.entries(ISO2_NUM).map(([k,v])=>[v,k])
 
 let _worldData = null;
 let _mapGame = null;
-let _forcedMapCountry = null;  // set before calling startMapGame() to pin a specific country
+let _forcedMapCountry = null;   // set before startMapGame() to pin a country from the bot game
+let _mapSyncedFromBot = false;  // true when map game was launched from bot's ?start=map
 
 async function startMapGame() {
   let country;
   if (_forcedMapCountry) {
     country = _forcedMapCountry;
     _forcedMapCountry = null;
+    _mapSyncedFromBot = true;
   } else {
+    _mapSyncedFromBot = false;
     const pool = (state.region === 'all' ? GAME_DATA : GAME_DATA.filter(c=>c.continent===state.region))
       .filter(c => c.iso2 && ISO2_NUM[c.iso2]);
     if (!pool.length) { showToast('No countries!'); return; }
@@ -1129,6 +1132,11 @@ function onMapClick(numId, el) {
     if (state.session.streak > state.session.best) state.session.best = state.session.streak;
     updateSessionStats();
     _showMapToast('🎉 ' + (correct.names[state.lang] || correct.names.en) + '!');
+    // If launched from bot game, send the answer back so the bot closes its active game
+    if (_mapSyncedFromBot && tg) {
+      try { tg.sendData(JSON.stringify({country: correct.names.en || correct.key})); } catch(e) {}
+      _mapSyncedFromBot = false;
+    }
     setTimeout(() => { _mapGame = null; showResult('correct', correct); }, 1800);
   } else {
     el.classList.add('wrong-flash');
