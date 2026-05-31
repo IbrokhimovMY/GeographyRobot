@@ -152,21 +152,33 @@ async def _fetch_wiki_fact(country_uz: str, lang: str) -> str | None:
 
 
 async def fetch_wiki_sentences(country_uz: str, lang: str, max_sentences: int = 5) -> list[str]:
-    """Return Wikipedia sentences for progressive hints in-game."""
+    """Return Wikipedia sentences for progressive hints in-game (user's language first)."""
     country_en = _UZ_TO_EN.get(country_uz, country_uz)
-    title = urllib.parse.quote(country_en.replace(' ', '_'))
-    url = f"https://en.wikipedia.org/api/rest_v1/page/summary/{title}"
-    try:
-        async with httpx.AsyncClient(timeout=15, follow_redirects=True,
-                                      headers=_WIKI_HEADERS) as client:
-            resp = await client.get(url)
-            if resp.status_code == 200:
-                extract = resp.json().get('extract', '').strip()
-                if extract:
-                    sentences = [s.strip() + '.' for s in extract.split('. ') if len(s.strip()) > 20]
-                    return sentences[:max_sentences]
-    except Exception as exc:
-        logger.warning("Wikipedia sentences failed (%s): %s", country_en, exc)
+
+    # Try user's language first, fall back to English
+    langs_to_try = [lang, 'en'] if lang != 'en' else ['en']
+
+    async with httpx.AsyncClient(timeout=15, follow_redirects=True,
+                                  headers=_WIKI_HEADERS) as client:
+        for wiki_lang in langs_to_try:
+            if wiki_lang != 'en':
+                from translations import COUNTRY_NAMES_RU
+                local_name = (COUNTRY_NAMES_RU if wiki_lang == 'ru' else COUNTRY_NAMES_EN).get(country_uz, country_en)
+                title = urllib.parse.quote(local_name.replace(' ', '_'))
+                url = f"https://{wiki_lang}.wikipedia.org/api/rest_v1/page/summary/{title}"
+            else:
+                title = urllib.parse.quote(country_en.replace(' ', '_'))
+                url = f"https://en.wikipedia.org/api/rest_v1/page/summary/{title}"
+            try:
+                resp = await client.get(url)
+                if resp.status_code == 200:
+                    extract = resp.json().get('extract', '').strip()
+                    if extract:
+                        sentences = [s.strip() + '.' for s in extract.split('. ') if len(s.strip()) > 20]
+                        if sentences:
+                            return sentences[:max_sentences]
+            except Exception as exc:
+                logger.warning("Wikipedia sentences failed (%s, %s): %s", wiki_lang, country_en, exc)
     return []
 
 

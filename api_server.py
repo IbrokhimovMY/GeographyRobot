@@ -101,8 +101,13 @@ async def handle_game(request: web.Request) -> web.Response:
     user_id = request.rel_url.query.get("user_id", "")
     if not user_id:
         return web.json_response({"active": False})
-    from state import active_country_games
-    game = active_country_games.get(user_id)  # works for private chats (chat_id == user_id)
+    from state import active_country_games, user_game_chats
+    # Try private chat first (chat_id == user_id), then group lookup via user_game_chats
+    game = active_country_games.get(user_id)
+    if not game:
+        chat_id = user_game_chats.get(user_id)
+        if chat_id:
+            game = active_country_games.get(chat_id)
     if not game:
         return web.json_response({"active": False})
     return web.json_response({"active": True, "country_uz": game["country"]})

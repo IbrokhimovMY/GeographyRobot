@@ -17,6 +17,10 @@ active_currency_games: Dict[str, dict] = {}
 used_capital_countries: Dict[str, Set[str]] = defaultdict(set)
 used_country_countries: Dict[str, Set[str]] = defaultdict(set)
 
+# user_id → chat_id: lets the mini-app look up the active country game
+# even when the game is in a group (where chat_id ≠ user_id)
+user_game_chats: Dict[str, str] = {}
+
 
 def _cancel_job(game: dict | None) -> None:
     if game:

@@ -19,7 +19,7 @@ from state import (
     active_country_games, active_capital_games, active_flag_games,
     used_country_countries, used_capital_countries,
     cancel_capital_job, cancel_country_job, cancel_flag_job,
-    new_hint_data,
+    new_hint_data, user_game_chats,
 )
 from translations import t, get_hint, get_country_name
 
@@ -145,6 +145,7 @@ async def get_country(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         'country': country_uz, 'attempts': 0,
         'hint_data': new_hint_data(), 'job': job,
     }
+    user_game_chats[user_id] = chat_id   # lets mini-app map find the game by user_id
 
     hint_text = get_hint(country_uz, lang, COUNTRY_HINTS_UZ)
     extra = ''
