@@ -126,7 +126,8 @@ async def _fetch_wiki_fact(country_uz: str, lang: str) -> str | None:
     """Return a Wikipedia extract for a country. Used after correct answers."""
     country_en = _UZ_TO_EN.get(country_uz, country_uz)
     title = urllib.parse.quote(country_en.replace(' ', '_'))
-    langs_to_try = ['en'] if lang == 'en' else ['en', lang]
+    # Try user's language first, fall back to English
+    langs_to_try = ['en'] if lang == 'en' else [lang, 'en']
 
     async with httpx.AsyncClient(timeout=15, follow_redirects=True,
                                   headers=_WIKI_HEADERS) as client:
