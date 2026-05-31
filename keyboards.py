@@ -15,7 +15,12 @@ def default_kb(lang: str, in_group: bool = False) -> ReplyKeyboardMarkup:
     ]
     # WebApp buttons are not supported in groups — only add in private chats
     if WEBAPP_URL and not in_group:
-        rows.append([telegram.KeyboardButton(t(lang, 'btn_miniapp'), web_app=WebAppInfo(url=WEBAPP_URL))])
+        sep = '&' if '?' in WEBAPP_URL else '?'
+        map_url = WEBAPP_URL + sep + 'start=map'
+        rows.append([
+            telegram.KeyboardButton(t(lang, 'btn_map'),    web_app=WebAppInfo(url=map_url)),
+            telegram.KeyboardButton(t(lang, 'btn_miniapp'), web_app=WebAppInfo(url=WEBAPP_URL)),
+        ])
     return ReplyKeyboardMarkup(rows, resize_keyboard=True, one_time_keyboard=False)
 
 

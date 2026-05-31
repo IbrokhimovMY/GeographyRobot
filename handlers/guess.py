@@ -305,7 +305,7 @@ async def handle_guess(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
                 else:
                     await update.message.reply_text(
                         f"{t(lang, 'wrong_country')} ({remaining}🎯)",
-                        reply_markup=map_kb(lang, in_group),
+                        reply_markup=guess_kb(lang),
                     )
         return
 
@@ -439,5 +439,5 @@ async def handle_webapp_data(update: Update, context: ContextTypes.DEFAULT_TYPE)
                 chat_id=int(chat_id),
                 text=f"{t(lang, 'map_wrong', selected=html.escape(selected_display))} ({remaining}🎯)",
                 parse_mode='HTML',
-                reply_markup=map_kb(lang, in_group),
+                reply_markup=guess_kb(lang),
             )

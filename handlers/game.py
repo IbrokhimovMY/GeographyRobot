@@ -160,7 +160,7 @@ async def get_country(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         msg = t(lang, 'country_game_private', hint=hint_text) + extra
 
     await update.message.reply_text(
-        f"{msg}\n\n{progress}", parse_mode='Markdown', reply_markup=map_kb(lang, in_group)
+        f"{msg}\n\n{progress}", parse_mode='Markdown', reply_markup=guess_kb(lang)
     )
     logger.info("Country game: chat=%s → %s [%s]", chat_id, country_uz, difficulty)
 
