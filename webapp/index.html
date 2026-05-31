@@ -1041,37 +1041,18 @@ const NUM_ISO2 = Object.fromEntries(Object.entries(ISO2_NUM).map(([k,v])=>[v,k])
 
 let _worldData = null;
 let _mapGame = null;
-let _forcedMapCountry = null;   // set before startMapGame() to pin a country from the bot game
-let _mapSyncedFromBot = false;  // true when map game was launched from bot's ?start=map
+let _forcedMapCountry = null;  // set by ?start=map handler before calling startMapGame()
 
 async function startMapGame() {
   let country;
   if (_forcedMapCountry) {
     country = _forcedMapCountry;
     _forcedMapCountry = null;
-    _mapSyncedFromBot = true;
   } else {
-    _mapSyncedFromBot = false;
-    // Always try to sync with an active bot country game first
-    const uid = tg?.initDataUnsafe?.user?.id;
-    if (uid) {
-      try {
-        const d = await fetch(`/api/game?user_id=${uid}`).then(r => r.json());
-        if (d.active && d.country_uz) {
-          const c = GAME_DATA.find(x => x.key === d.country_uz);
-          if (c && c.iso2 && ISO2_NUM[c.iso2]) {
-            country = c;
-            _mapSyncedFromBot = true;
-          }
-        }
-      } catch(e) {}
-    }
-    if (!country) {
-      const pool = (state.region === 'all' ? GAME_DATA : GAME_DATA.filter(c=>c.continent===state.region))
-        .filter(c => c.iso2 && ISO2_NUM[c.iso2]);
-      if (!pool.length) { showToast('No countries!'); return; }
-      country = pool[Math.floor(Math.random()*pool.length)];
-    }
+    const pool = (state.region === 'all' ? GAME_DATA : GAME_DATA.filter(c=>c.continent===state.region))
+      .filter(c => c.iso2 && ISO2_NUM[c.iso2]);
+    if (!pool.length) { showToast('No countries!'); return; }
+    country = pool[Math.floor(Math.random()*pool.length)];
   }
   const duration = TIMERS.map[state.difficulty];
   _mapGame = {
@@ -1148,11 +1129,6 @@ function onMapClick(numId, el) {
     if (state.session.streak > state.session.best) state.session.best = state.session.streak;
     updateSessionStats();
     _showMapToast('🎉 ' + (correct.names[state.lang] || correct.names.en) + '!');
-    // If launched from bot game, send the answer back so the bot closes its active game
-    if (_mapSyncedFromBot && tg) {
-      try { tg.sendData(JSON.stringify({country: correct.names.en || correct.key})); } catch(e) {}
-      _mapSyncedFromBot = false;
-    }
     setTimeout(() => { _mapGame = null; showResult('correct', correct); }, 1800);
   } else {
     el.classList.add('wrong-flash');
