@@ -6,7 +6,7 @@ from telegram import Update
 from telegram.ext import ContextTypes
 
 from data import COUNTRIES, COUNTRY_CURRENCIES, COUNTRY_CONTINENTS
-from database import get_user_lang, get_difficulty, get_continent_filter
+from database import get_user_lang, get_difficulty, get_continent_filter, record_result, reset_streak
 from keyboards import default_kb, guess_kb
 from state import (
     active_country_games, active_capital_games, active_flag_games, active_currency_games,
@@ -58,7 +58,8 @@ async def get_currency_game(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     job = context.job_queue.run_once(
         callback=_timeout_currency,
         when=timeout_sec,
-        data={'chat_id': chat_id, 'country': country_uz, 'lang': lang, 'is_group': in_group},
+        data={'chat_id': chat_id, 'country': country_uz, 'lang': lang,
+              'is_group': in_group, 'user_id': user_id if not in_group else ''},
         name=f"currency_timeout_{chat_id}",
     )
     active_currency_games[chat_id] = {
@@ -78,6 +79,10 @@ async def _timeout_currency(context: ContextTypes.DEFAULT_TYPE) -> None:
     lang = data.get('lang', 'uz')
     if chat_id in active_currency_games and active_currency_games[chat_id]['country'] == country_uz:
         del active_currency_games[chat_id]
+        uid = data.get('user_id', '')
+        if uid:
+            record_result(uid, '', 'country', 'wrong')
+            reset_streak(uid, '')
         country_display = get_country_name(country_uz, lang)
         cur_name, cur_code = COUNTRY_CURRENCIES[country_uz]
         await context.bot.send_message(

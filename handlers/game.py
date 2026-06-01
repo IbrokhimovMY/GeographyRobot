@@ -128,6 +128,13 @@ async def _next_hint(country_uz: str, lang: str, hint_data: dict,
         return t(lang, 'hint_flag', flag=flag)
     if after_wiki == 2:
         return t(lang, 'hint_capital', capital=capital)
+    if after_wiki == 3:
+        # Last hint: first letter + letter count (same as mini app)
+        name = get_country_name(country_uz, lang) or country_uz
+        first = name[0].upper()
+        count = len(name)
+        suffix = {'uz': 'harf', 'ru': 'букв', 'en': 'letters'}.get(lang, 'letters')
+        return f"💡 {first}... ({count} {suffix})"
 
     return t(lang, 'hint_exhausted')
 

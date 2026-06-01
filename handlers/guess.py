@@ -176,7 +176,7 @@ async def handle_guess(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     if chat_id in active_flag_games:
         game = active_flag_games[chat_id]
         correct_uz = game['country']
-        if guess_uz.lower() == correct_uz.lower():
+        if _fix_apos(guess_uz).lower() == _fix_apos(correct_uz).lower():
             cancel_flag_job(chat_id)
             del active_flag_games[chat_id]
             name = _player_name(update)
@@ -222,7 +222,7 @@ async def handle_guess(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     if chat_id in active_currency_games:
         game = active_currency_games[chat_id]
         correct_uz = game['country']
-        if guess_uz.lower() == correct_uz.lower():
+        if _fix_apos(guess_uz).lower() == _fix_apos(correct_uz).lower():
             cancel_currency_job(chat_id)
             del active_currency_games[chat_id]
             flag = COUNTRY_FLAGS.get(correct_uz, '🏴')
@@ -265,7 +265,7 @@ async def handle_guess(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         game = active_country_games[chat_id]
         correct_uz = game['country']
         is_challenge = game.get('challenge', False)
-        if guess_uz.lower() == correct_uz.lower():
+        if _fix_apos(guess_uz).lower() == _fix_apos(correct_uz).lower():
             cancel_country_job(chat_id)
             del active_country_games[chat_id]
             user_game_chats.pop(user_id, None)
@@ -322,7 +322,7 @@ async def handle_guess(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     if chat_id in active_capital_games:
         game = active_capital_games[chat_id]
         correct_uz = game['country']
-        if guess_uz.lower() == correct_uz.lower():
+        if _fix_apos(guess_uz).lower() == _fix_apos(correct_uz).lower():
             cancel_capital_job(chat_id)
             record_result(user_id, username, 'capital', 'correct')
             del active_capital_games[chat_id]

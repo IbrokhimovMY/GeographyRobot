@@ -23,6 +23,12 @@ logger = logging.getLogger(__name__)
 
 _UZ_TO_EN: dict[str, str] = {uz: en for en, uz in MAP_EN_TO_UZ.items()}
 _UZ_TO_EN.update(COUNTRY_NAMES_EN)
+# Disambiguate country names that conflict with other Wikipedia articles
+_WIKI_OVERRIDES: dict[str, str] = {
+    'Turkiya': 'Türkiye',          # "Turkey" redirects ambiguously; use official name
+    'Turkmeniston': 'Turkmenistan',
+    'Janubiy Sudan': 'South Sudan',
+}
 
 # Wikipedia requires a proper User-Agent — cloud IPs are 403'd without it
 _WIKI_HEADERS = {
@@ -124,7 +130,8 @@ async def _fetch_onthisday(lang: str) -> str | None:
 
 async def _fetch_wiki_fact(country_uz: str, lang: str) -> str | None:
     """Return a Wikipedia extract for a country. Used after correct answers."""
-    country_en = _UZ_TO_EN.get(country_uz, country_uz)
+    # Use override first (e.g., Türkiye instead of Turkey to avoid disambiguation)
+    country_en = _WIKI_OVERRIDES.get(country_uz) or _UZ_TO_EN.get(country_uz, country_uz)
     title = urllib.parse.quote(country_en.replace(' ', '_'))
     # Try user's language first, fall back to English
     langs_to_try = ['en'] if lang == 'en' else [lang, 'en']
@@ -153,7 +160,7 @@ async def _fetch_wiki_fact(country_uz: str, lang: str) -> str | None:
 
 async def fetch_wiki_sentences(country_uz: str, lang: str, max_sentences: int = 5) -> list[str]:
     """Return Wikipedia sentences for progressive hints in-game (user's language first)."""
-    country_en = _UZ_TO_EN.get(country_uz, country_uz)
+    country_en = _WIKI_OVERRIDES.get(country_uz) or _UZ_TO_EN.get(country_uz, country_uz)
 
     # Try user's language first, fall back to English
     langs_to_try = [lang, 'en'] if lang != 'en' else ['en']

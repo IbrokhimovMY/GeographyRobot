@@ -715,7 +715,7 @@ async def check_text_quiz_answer(
     quiz = active_text_quizzes.get(chat_id)
     if not quiz or quiz['answered']:
         return False
-    if guess_uz.lower() != quiz['correct_uz'].lower():
+    if _fix_apos(guess_uz).lower() != _fix_apos(quiz['correct_uz']).lower():
         return False   # wrong — keep silent, let others try
 
     elapsed = round(time.time() - quiz.get('question_time', time.time()), 1)
