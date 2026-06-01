@@ -25,6 +25,8 @@ logging.getLogger(__name__).info("PG env vars found: %s  USE_PG=%s", _all_pg_var
 
 if USE_PG:
     import psycopg2
+    from psycopg2 import pool as pg_pool
+    _pg_pool: pg_pool.SimpleConnectionPool | None = None
 else:
     import sqlite3
 
@@ -42,10 +44,20 @@ def _q(sql: str) -> str:
     return sql.replace('?', '%s') if USE_PG else sql
 
 
+def _get_pg_pool() -> 'pg_pool.SimpleConnectionPool':
+    global _pg_pool
+    if _pg_pool is None:
+        _pg_pool = pg_pool.SimpleConnectionPool(
+            minconn=2, maxconn=10, dsn=DATABASE_URL
+        )
+    return _pg_pool
+
+
 @contextmanager
 def _get_conn():
     if USE_PG:
-        conn = psycopg2.connect(DATABASE_URL)
+        pool = _get_pg_pool()
+        conn = pool.getconn()
         try:
             yield conn
             conn.commit()
@@ -53,7 +65,7 @@ def _get_conn():
             conn.rollback()
             raise
         finally:
-            conn.close()
+            pool.putconn(conn)
     else:
         conn = sqlite3.connect(DB_PATH)
         try:

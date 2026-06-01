@@ -48,7 +48,11 @@ def main() -> None:
     init_db()
     logging.getLogger(__name__).info("Bot starting…")
 
-    app = Application.builder().token(BOT_TOKEN).post_init(_post_init).build()
+    app = (Application.builder()
+           .token(BOT_TOKEN)
+           .concurrent_updates(True)   # handle multiple users simultaneously
+           .post_init(_post_init)
+           .build())
 
     # Onboarding must be first
     app.add_handler(build_onboarding_handler())
