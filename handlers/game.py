@@ -106,30 +106,18 @@ async def _next_hint(country_uz: str, lang: str, hint_data: dict,
             return t(lang, 'hint_flag', flag=flag)
         return t(lang, 'hint_exhausted')
 
-    # ── Country game: full progression (description → wiki → continent → flag → capital)
+    # ── Country game: same safe progression as mini app (no Wikipedia — it reveals the answer)
+    #    description → continent → flag → capital → first letter + count
     if idx == 0:
         local = get_hint(country_uz, lang, COUNTRY_HINTS_UZ)
         return t(lang, 'hint_1', hint=local)
-
-    if not hint_data['fetched']:
-        hint_data['wiki_sentences'] = await fetch_wiki_sentences(country_uz, lang)
-        hint_data['fetched'] = True
-
-    wiki     = hint_data['wiki_sentences']
-    wiki_idx = idx - 1
-
-    if wiki_idx < len(wiki):
-        return t(lang, 'hint_wiki', hint=wiki[wiki_idx])
-
-    after_wiki = idx - 1 - len(wiki)
-    if after_wiki == 0:
+    if idx == 1:
         return t(lang, 'hint_continent', continent=continent_label)
-    if after_wiki == 1:
+    if idx == 2:
         return t(lang, 'hint_flag', flag=flag)
-    if after_wiki == 2:
+    if idx == 3:
         return t(lang, 'hint_capital', capital=capital)
-    if after_wiki == 3:
-        # Last hint: first letter + letter count (same as mini app)
+    if idx == 4:
         name = get_country_name(country_uz, lang) or country_uz
         first = name[0].upper()
         count = len(name)
