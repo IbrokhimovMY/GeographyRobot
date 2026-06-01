@@ -7,20 +7,14 @@ from config import WEBAPP_URL
 def default_kb(lang: str, in_group: bool = False) -> ReplyKeyboardMarkup:
     rows = [
         [t(lang, 'btn_country'), t(lang, 'btn_capital'), t(lang, 'btn_flag')],
-        [t(lang, 'btn_currency'), t(lang, 'btn_challenge'), t(lang, 'btn_stats')],
+        [t(lang, 'btn_currency'), t(lang, 'btn_stats'), t(lang, 'btn_top')],
         [t(lang, 'btn_quiz1'), t(lang, 'btn_quiz2')],
-        [t(lang, 'btn_top'), t(lang, 'btn_region'), t(lang, 'btn_difficulty')],
-        [t(lang, 'btn_daily_facts'), t(lang, 'btn_info'), t(lang, 'btn_reset')],
-        [t(lang, 'btn_invite'), t(lang, 'btn_help')],
+        [t(lang, 'btn_region'), t(lang, 'btn_daily_facts'), t(lang, 'btn_info')],
+        [t(lang, 'btn_invite'), t(lang, 'btn_reset'), t(lang, 'btn_help')],
     ]
-    # WebApp buttons are not supported in groups — only add in private chats
+    # Mini App button (WebApp) — only in private chats
     if WEBAPP_URL and not in_group:
-        sep = '&' if '?' in WEBAPP_URL else '?'
-        map_url = WEBAPP_URL + sep + 'start=map'
-        rows.append([
-            telegram.KeyboardButton(t(lang, 'btn_map'),    web_app=WebAppInfo(url=map_url)),
-            telegram.KeyboardButton(t(lang, 'btn_miniapp'), web_app=WebAppInfo(url=WEBAPP_URL)),
-        ])
+        rows.append([telegram.KeyboardButton(t(lang, 'btn_miniapp'), web_app=WebAppInfo(url=WEBAPP_URL))])
     return ReplyKeyboardMarkup(rows, resize_keyboard=True, one_time_keyboard=False)
 
 

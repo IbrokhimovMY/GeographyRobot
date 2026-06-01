@@ -12,7 +12,7 @@ from data import (
 )
 from database import (
     get_user_lang, get_display_name,
-    get_difficulty, get_continent_filter,
+    get_difficulty, get_continent_filter, record_result, reset_streak,
 )
 from keyboards import default_kb, guess_kb, map_kb
 from state import (
@@ -69,39 +69,64 @@ def _filtered_pool(user_id: str) -> list[str]:
     return [c for c in COUNTRIES if COUNTRY_CONTINENTS.get(c) == continent]
 
 
-async def _next_hint(country_uz: str, lang: str, hint_data: dict) -> str:
-    """Return the next progressive hint and advance the hint index."""
+async def _next_hint(country_uz: str, lang: str, hint_data: dict,
+                     game_type: str = 'country') -> str:
+    """Return the next progressive hint, adapted per game type."""
     from handlers.facts import fetch_wiki_sentences
 
     idx = hint_data['idx']
     hint_data['idx'] += 1
 
+    flag    = COUNTRY_FLAGS.get(country_uz, '🏴')
+    capital = COUNTRIES_CAPITALS.get(country_uz, '—')
+    continent_key   = COUNTRY_CONTINENTS.get(country_uz, '')
+    continent_label = t(lang, _CONTINENT_KEY.get(continent_key, 'region_all'))
+
+    # ── Capital game: answer IS the country name, so hints must NOT reveal it.
+    #    Give: continent → flag (visual clue) → exhausted
+    if game_type == 'capital':
+        if idx == 0:
+            return t(lang, 'hint_continent', continent=continent_label)
+        if idx == 1:
+            return t(lang, 'hint_flag', flag=flag)
+        return t(lang, 'hint_exhausted')
+
+    # ── Flag game: flag IS the question, description/wiki reveal the country.
+    #    Give: continent → exhausted
+    if game_type == 'flag':
+        if idx == 0:
+            return t(lang, 'hint_continent', continent=continent_label)
+        return t(lang, 'hint_exhausted')
+
+    # ── Currency game: similar to flag — just continent + flag clue
+    if game_type == 'currency':
+        if idx == 0:
+            return t(lang, 'hint_continent', continent=continent_label)
+        if idx == 1:
+            return t(lang, 'hint_flag', flag=flag)
+        return t(lang, 'hint_exhausted')
+
+    # ── Country game: full progression (description → wiki → continent → flag → capital)
     if idx == 0:
         local = get_hint(country_uz, lang, COUNTRY_HINTS_UZ)
         return t(lang, 'hint_1', hint=local)
 
-    # Fetch Wikipedia sentences on first web-hint request
     if not hint_data['fetched']:
         hint_data['wiki_sentences'] = await fetch_wiki_sentences(country_uz, lang)
         hint_data['fetched'] = True
 
-    wiki = hint_data['wiki_sentences']
-    wiki_idx = idx - 1  # wiki sentence offset
+    wiki     = hint_data['wiki_sentences']
+    wiki_idx = idx - 1
 
     if wiki_idx < len(wiki):
         return t(lang, 'hint_wiki', hint=wiki[wiki_idx])
 
-    # After wiki sentences: flag → capital
     after_wiki = idx - 1 - len(wiki)
     if after_wiki == 0:
-        continent_key = COUNTRY_CONTINENTS.get(country_uz, '')
-        continent_label = t(lang, _CONTINENT_KEY.get(continent_key, 'region_all'))
         return t(lang, 'hint_continent', continent=continent_label)
     if after_wiki == 1:
-        flag = COUNTRY_FLAGS.get(country_uz, '🏴')
         return t(lang, 'hint_flag', flag=flag)
     if after_wiki == 2:
-        capital = COUNTRIES_CAPITALS.get(country_uz, '—')
         return t(lang, 'hint_capital', capital=capital)
 
     return t(lang, 'hint_exhausted')
@@ -138,7 +163,7 @@ async def get_country(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     job = context.job_queue.run_once(
         callback=timeout_country_guess,
         when=timeout_sec,
-        data={'chat_id': chat_id, 'country': country_uz, 'lang': lang, 'is_group': in_group},
+        data={'chat_id': chat_id, 'country': country_uz, 'lang': lang, 'is_group': in_group, 'user_id': user_id if not in_group else ''},
         name=f"country_timeout_{chat_id}",
     )
     active_country_games[chat_id] = {
@@ -172,11 +197,14 @@ async def timeout_country_guess(context: ContextTypes.DEFAULT_TYPE) -> None:
     lang = data.get('lang', 'uz')
     if chat_id in active_country_games and active_country_games[chat_id]['country'] == country_uz:
         del active_country_games[chat_id]
-        # Clear user→chat mapping (user_id not available here, iterate to find)
         for uid, cid in list(user_game_chats.items()):
             if cid == chat_id:
                 del user_game_chats[uid]
                 break
+        uid = data.get('user_id', '')
+        if uid:
+            record_result(uid, '', 'country', 'wrong')
+            reset_streak(uid, '')
         country_display = get_country_name(country_uz, lang)
         await context.bot.send_message(
             chat_id=int(chat_id),
@@ -218,7 +246,7 @@ async def get_capital(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     job = context.job_queue.run_once(
         callback=timeout_capital_guess,
         when=timeout_sec,
-        data={'chat_id': chat_id, 'country': country_uz, 'lang': lang, 'is_group': in_group},
+        data={'chat_id': chat_id, 'country': country_uz, 'lang': lang, 'is_group': in_group, 'user_id': user_id if not in_group else ''},
         name=f"timeout_{chat_id}",
     )
     active_capital_games[chat_id] = {'country': country_uz, 'capital': capital, 'job': job, 'attempts': 0}
@@ -242,6 +270,10 @@ async def timeout_capital_guess(context: ContextTypes.DEFAULT_TYPE) -> None:
     lang = data.get('lang', 'uz')
     if chat_id in active_capital_games and active_capital_games[chat_id]['country'] == country_uz:
         del active_capital_games[chat_id]
+        uid = data.get('user_id', '')
+        if uid:
+            record_result(uid, '', 'capital', 'timeout')
+            reset_streak(uid, '')
         country_display = get_country_name(country_uz, lang)
         await context.bot.send_message(
             chat_id=int(chat_id),
@@ -264,27 +296,32 @@ async def hint(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     game = None
     country_uz = None
 
+    game_type = None
     if chat_id in active_country_games:
         game = active_country_games[chat_id]
         country_uz = game['country']
+        game_type = 'country'
     elif chat_id in active_flag_games:
         game = active_flag_games[chat_id]
         country_uz = game['country']
+        game_type = 'flag'
     elif chat_id in active_capital_games:
-        # Capital game: only one hint (the hint text)
-        country_uz = active_capital_games[chat_id]['country']
-        hint_text = get_hint(country_uz, lang, COUNTRY_HINTS_UZ) or t(lang, 'hint_not_found')
-        await update.message.reply_text(
-            t(lang, 'hint_text', hint=hint_text),
-            parse_mode='Markdown',
-            reply_markup=guess_kb(lang),
-        )
-        return
-
-    if country_uz and game is not None:
-        in_group = _is_group(update)
-        kb = map_kb(lang, in_group) if chat_id in active_country_games else guess_kb(lang)
-        hint_msg = await _next_hint(country_uz, lang, game['hint_data'])
-        await update.message.reply_text(hint_msg, parse_mode='Markdown', reply_markup=kb)
+        game = active_capital_games[chat_id]
+        country_uz = game['country']
+        game_type = 'capital'
     else:
-        await update.message.reply_text(t(lang, 'hint_no_game'), reply_markup=default_kb(lang, _is_group(update)))
+        from state import active_currency_games
+        if chat_id in active_currency_games:
+            game = active_currency_games[chat_id]
+            country_uz = game['country']
+            game_type = 'currency'
+
+    if country_uz and game is not None and game_type:
+        hint_msg = await _next_hint(country_uz, lang,
+                                    game.setdefault('hint_data', new_hint_data()),
+                                    game_type)
+        await update.message.reply_text(hint_msg, parse_mode='Markdown',
+                                        reply_markup=guess_kb(lang))
+    else:
+        await update.message.reply_text(t(lang, 'hint_no_game'),
+                                        reply_markup=default_kb(lang, _is_group(update)))

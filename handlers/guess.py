@@ -42,23 +42,24 @@ def _build_routes():
     routes = {}
     for lang in ('uz', 'ru', 'en'):
         s = STRINGS[lang]
-        routes[s['btn_country'].lower()]      = get_country
-        routes[s['btn_capital'].lower()]      = get_capital
-        routes[s['btn_hint'].lower()]         = hint
-        routes[s['btn_top'].lower()]          = top
-        routes[s['btn_stats'].lower()]        = stats
-        routes[s['btn_reset'].lower()]        = reset
-        routes[s['btn_help'].lower()]         = help_command
-        routes[s['btn_daily_facts'].lower()]  = daily_facts_command
-        routes[s['btn_flag'].lower()]         = get_flag
-        routes[s['btn_challenge'].lower()]    = get_challenge
-        routes[s['btn_info'].lower()]         = info_command
-        routes[s['btn_currency'].lower()]     = get_currency_game
-        routes[s['btn_region'].lower()]       = _region_btn
-        routes[s['btn_difficulty'].lower()]   = _difficulty_btn
-        routes[s['btn_quiz1'].lower()]        = start_variant_quiz
-        routes[s['btn_quiz2'].lower()]        = start_text_quiz
-        routes[s['btn_invite'].lower()]       = invite_command
+        # Use _fix_apos so buttons with O'/G' match regardless of apostrophe type
+        routes[_fix_apos(s['btn_country']).lower()]      = get_country
+        routes[_fix_apos(s['btn_capital']).lower()]      = get_capital
+        routes[_fix_apos(s['btn_hint']).lower()]         = hint
+        routes[_fix_apos(s['btn_top']).lower()]          = top
+        routes[_fix_apos(s['btn_stats']).lower()]        = stats
+        routes[_fix_apos(s['btn_reset']).lower()]        = reset
+        routes[_fix_apos(s['btn_help']).lower()]         = help_command
+        routes[_fix_apos(s['btn_daily_facts']).lower()]  = daily_facts_command
+        routes[_fix_apos(s['btn_flag']).lower()]         = get_flag
+        routes[_fix_apos(s['btn_challenge']).lower()]    = get_challenge
+        routes[_fix_apos(s['btn_info']).lower()]         = info_command
+        routes[_fix_apos(s['btn_currency']).lower()]     = get_currency_game
+        routes[_fix_apos(s['btn_region']).lower()]       = _region_btn
+        routes[_fix_apos(s['btn_difficulty']).lower()]   = _difficulty_btn
+        routes[_fix_apos(s['btn_quiz1']).lower()]        = start_variant_quiz
+        routes[_fix_apos(s['btn_quiz2']).lower()]        = start_text_quiz
+        routes[_fix_apos(s['btn_invite']).lower()]       = invite_command
     return routes
 
 
@@ -97,8 +98,16 @@ def _is_group(update: Update) -> bool:
     return update.effective_chat.type in ('group', 'supergroup')
 
 
+def _fix_apos(s: str) -> str:
+    """Normalize fancy apostrophes (mobile keyboards) to standard ASCII '."""
+    for ch in ('‘', '’', 'ʻ', 'ʼ', 'ʹ', '`', '´', '′'):
+        s = s.replace(ch, "'")
+    return s
+
+
 def _normalize(text: str) -> str:
-    return MAP_ANY_TO_UZ.get(text.strip().lower(), text.strip())
+    text = _fix_apos(text.strip())
+    return MAP_ANY_TO_UZ.get(text.lower(), text)
 
 
 def _streak_suffix(user_id: str, username: str, lang: str) -> str:
@@ -143,7 +152,7 @@ async def handle_guess(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         await info_lookup(update, context)
         return
 
-    route = _BUTTON_ROUTES.get(text.lower())
+    route = _BUTTON_ROUTES.get(_fix_apos(text).lower())
     if route:
         await route(update, context)
         return
