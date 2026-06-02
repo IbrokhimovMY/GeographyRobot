@@ -65,73 +65,50 @@ def _month_name(month: int, lang: str) -> str:
     return _MONTHS.get(lang, _MONTHS['en'])[month - 1]
 
 
-def _build_local_uz_fact() -> str | None:
-    """Build a geographic fact entirely from local Uzbek data — no external API."""
-    import random as _rnd
-    from data import COUNTRIES, COUNTRIES_CAPITALS, COUNTRY_FLAGS, COUNTRY_HINTS_UZ
-    from geo_facts import MOUNTAIN_FACTS, RIVER_FACTS
-    from custom_quiz_data import CUSTOM_QUESTIONS
-    from translations import get_country_name
+def _build_local_uz_fact(lang: str = 'uz') -> str | None:
+    """
+    Return a date-based geographic fact from our curated database.
+    Finds the closest entry to today's date.
+    """
+    from uz_daily_facts import UZ_DATE_FACTS
+    today = datetime.date.today()
+    m, d = today.month, today.day
 
-    country_set = set(COUNTRIES)
-    category = _rnd.choice(['country', 'country', 'mountain', 'river', 'quiz'])
+    # Find exact match first, then same month, then any
+    exact   = [(y, uz, ru, en) for mo, dy, y, uz, ru, en in UZ_DATE_FACTS if mo == m and dy == d]
+    month   = [(y, uz, ru, en) for mo, dy, y, uz, ru, en in UZ_DATE_FACTS if mo == m]
+    fallback= [(y, uz, ru, en) for mo, dy, y, uz, ru, en in UZ_DATE_FACTS]
 
-    try:
-        if category == 'country':
-            uz = _rnd.choice(COUNTRIES)
-            name = get_country_name(uz, 'uz')
-            flag = COUNTRY_FLAGS.get(uz, '🌍')
-            cap  = COUNTRIES_CAPITALS.get(uz, '—')
-            hint = COUNTRY_HINTS_UZ.get(uz, '')
-            if not hint:
-                return None
-            return (
-                f"🗓 <b>Bugungi geografik fakt</b>\n\n"
-                f"{flag} <b>{name}</b>\n\n"
-                f"{hint}\n\n"
-                f"🏙 Poytaxti: <b>{cap}</b>"
-            )
-
-        elif category == 'mountain':
-            valid = [(n, c) for n, c in MOUNTAIN_FACTS if c in country_set]
-            if not valid:
-                return None
-            name, cuz = _rnd.choice(valid)
-            cname = get_country_name(cuz, 'uz')
-            return (
-                f"🗓 <b>Bugungi geografik fakt</b>\n\n"
-                f"⛰ <b>{name}</b> — {cname} davlatida joylashgan tog'."
-            )
-
-        elif category == 'river':
-            valid = [(n, c) for n, c in RIVER_FACTS if c in country_set]
-            if not valid:
-                return None
-            name, cuz = _rnd.choice(valid)
-            cname = get_country_name(cuz, 'uz')
-            return (
-                f"🗓 <b>Bugungi geografik fakt</b>\n\n"
-                f"🌊 <b>{name}</b> — {cname} orqali oqadigan daryo."
-            )
-
-        else:  # quiz
-            uz_qs = [q for q in CUSTOM_QUESTIONS
-                     if q.get('uz') and q.get('explanation', {}).get('uz')]
-            if not uz_qs:
-                return None
-            q = _rnd.choice(uz_qs)
-            opts = q['options'].get('uz', [])
-            correct = opts[q['correct']] if opts else ''
-            explanation = q.get('explanation', {}).get('uz', '')
-            return (
-                f"🗓 <b>Bugungi geografik fakt</b>\n\n"
-                f"❓ {q['uz']}\n\n"
-                f"✅ <b>{correct}</b>\n\n"
-                f"💡 {explanation}"
-            )
-    except Exception as e:
-        logger.warning("_build_local_uz_fact error: %s", e)
+    pool = exact or month or fallback
+    if not pool:
         return None
+
+    year, uz_text, ru_text, en_text = random.choice(pool)
+
+    text = uz_text if lang == 'uz' else (ru_text if lang == 'ru' else en_text)
+
+    month_names = {
+        'uz': ["Yanvar","Fevral","Mart","Aprel","May","Iyun",
+               "Iyul","Avgust","Sentabr","Oktabr","Noyabr","Dekabr"],
+        'ru': ["Января","Февраля","Марта","Апреля","Мая","Июня",
+               "Июля","Августа","Сентября","Октября","Ноября","Декабря"],
+        'en': ["January","February","March","April","May","June",
+               "July","August","September","October","November","December"],
+    }
+    month_str = month_names.get(lang, month_names['en'])[m - 1]
+
+    date_label = f"{d} {month_str}" if lang in ('uz', 'ru') else f"{month_str} {d}"
+    year_label = {
+        'uz': f"{year} yilda bu kunda:",
+        'ru': f"В этот день в {year} году:",
+        'en': f"On this day in {year}:",
+    }.get(lang, f"In {year}:")
+
+    return (
+        f"🗓 <b>{date_label}</b>\n\n"
+        f"<i>{html.escape(year_label)}</i>\n\n"
+        f"{html.escape(text)}"
+    )
 
 
 async def _fetch_onthisday(lang: str) -> str | None:
@@ -147,10 +124,9 @@ async def _fetch_onthisday(lang: str) -> str | None:
     # uz → use local Uzbek facts (Wikipedia uz feed doesn't exist)
     # ru → ru, en
     # en → en
-    if lang == 'uz':
-        return _build_local_uz_fact()
-    elif lang == 'ru':
-        wiki_langs = ['ru', 'en']
+    if lang in ('uz', 'ru'):
+        # Use our curated date-based database (Wikipedia uz/ru feeds unreliable)
+        return _build_local_uz_fact(lang)
     else:
         wiki_langs = ['en']
 
