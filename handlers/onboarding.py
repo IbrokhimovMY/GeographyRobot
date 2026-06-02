@@ -70,6 +70,20 @@ async def lang_selected(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
 
     # Returning user (already has a name) — go straight to main keyboard
     if get_display_name(user_id):
+        # Still credit referral for returning users who haven't been referred before
+        referrer_id = context.user_data.pop('referrer_id', None)
+        if referrer_id:
+            new_count = add_referral(referrer_id, user_id)
+            if new_count > 0:
+                lang_r = get_user_lang(referrer_id)
+                try:
+                    await context.bot.send_message(
+                        chat_id=int(referrer_id),
+                        text=t(lang_r, 'referral_joined', name=html.escape(username)),
+                        parse_mode='HTML',
+                    )
+                except Exception:
+                    pass
         in_group = query.message.chat.type in ('group', 'supergroup')
         await context.bot.send_message(
             chat_id=query.message.chat_id,
