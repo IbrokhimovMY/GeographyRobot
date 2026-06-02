@@ -40,8 +40,14 @@ _SCORE_COLUMNS: dict[tuple, str] = {
 
 
 def _q(sql: str) -> str:
-    """Replace ? placeholders with %s for PostgreSQL."""
-    return sql.replace('?', '%s') if USE_PG else sql
+    """Prepare SQL for the active backend.
+    PostgreSQL (psycopg2): escape literal % as %%, then replace ? with %s.
+    SQLite: return as-is.
+    """
+    if not USE_PG:
+        return sql
+    # Escape existing % first (e.g. LIKE '-%'), then add %s for params
+    return sql.replace('%', '%%').replace('?', '%s')
 
 
 def _get_pg_pool() -> 'pg_pool.SimpleConnectionPool':
