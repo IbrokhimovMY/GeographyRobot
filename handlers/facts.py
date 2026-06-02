@@ -65,6 +65,75 @@ def _month_name(month: int, lang: str) -> str:
     return _MONTHS.get(lang, _MONTHS['en'])[month - 1]
 
 
+def _build_local_uz_fact() -> str | None:
+    """Build a geographic fact entirely from local Uzbek data — no external API."""
+    import random as _rnd
+    from data import COUNTRIES, COUNTRIES_CAPITALS, COUNTRY_FLAGS, COUNTRY_HINTS_UZ
+    from geo_facts import MOUNTAIN_FACTS, RIVER_FACTS
+    from custom_quiz_data import CUSTOM_QUESTIONS
+    from translations import get_country_name
+
+    country_set = set(COUNTRIES)
+    category = _rnd.choice(['country', 'country', 'mountain', 'river', 'quiz'])
+
+    try:
+        if category == 'country':
+            uz = _rnd.choice(COUNTRIES)
+            name = get_country_name(uz, 'uz')
+            flag = COUNTRY_FLAGS.get(uz, '🌍')
+            cap  = COUNTRIES_CAPITALS.get(uz, '—')
+            hint = COUNTRY_HINTS_UZ.get(uz, '')
+            if not hint:
+                return None
+            return (
+                f"🗓 <b>Bugungi geografik fakt</b>\n\n"
+                f"{flag} <b>{name}</b>\n\n"
+                f"{hint}\n\n"
+                f"🏙 Poytaxti: <b>{cap}</b>"
+            )
+
+        elif category == 'mountain':
+            valid = [(n, c) for n, c in MOUNTAIN_FACTS if c in country_set]
+            if not valid:
+                return None
+            name, cuz = _rnd.choice(valid)
+            cname = get_country_name(cuz, 'uz')
+            return (
+                f"🗓 <b>Bugungi geografik fakt</b>\n\n"
+                f"⛰ <b>{name}</b> — {cname} davlatida joylashgan tog'."
+            )
+
+        elif category == 'river':
+            valid = [(n, c) for n, c in RIVER_FACTS if c in country_set]
+            if not valid:
+                return None
+            name, cuz = _rnd.choice(valid)
+            cname = get_country_name(cuz, 'uz')
+            return (
+                f"🗓 <b>Bugungi geografik fakt</b>\n\n"
+                f"🌊 <b>{name}</b> — {cname} orqali oqadigan daryo."
+            )
+
+        else:  # quiz
+            uz_qs = [q for q in CUSTOM_QUESTIONS
+                     if q.get('uz') and q.get('explanation', {}).get('uz')]
+            if not uz_qs:
+                return None
+            q = _rnd.choice(uz_qs)
+            opts = q['options'].get('uz', [])
+            correct = opts[q['correct']] if opts else ''
+            explanation = q.get('explanation', {}).get('uz', '')
+            return (
+                f"🗓 <b>Bugungi geografik fakt</b>\n\n"
+                f"❓ {q['uz']}\n\n"
+                f"✅ <b>{correct}</b>\n\n"
+                f"💡 {explanation}"
+            )
+    except Exception as e:
+        logger.warning("_build_local_uz_fact error: %s", e)
+        return None
+
+
 async def _fetch_onthisday(lang: str) -> str | None:
     """
     Fetch a geographic 'On This Day' fact via Wikipedia's feed API.
@@ -74,8 +143,16 @@ async def _fetch_onthisday(lang: str) -> str | None:
     today = datetime.date.today()
     m, d = today.month, today.day
 
-    # Language priority: user lang → English
-    wiki_langs = [lang, 'en'] if lang != 'en' else ['en']
+    # Language priority:
+    # uz → use local Uzbek facts (Wikipedia uz feed doesn't exist)
+    # ru → ru, en
+    # en → en
+    if lang == 'uz':
+        return _build_local_uz_fact()
+    elif lang == 'ru':
+        wiki_langs = ['ru', 'en']
+    else:
+        wiki_langs = ['en']
 
     async with httpx.AsyncClient(timeout=20, follow_redirects=True,
                                   headers=_WIKI_HEADERS) as client:
