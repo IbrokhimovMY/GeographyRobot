@@ -34,6 +34,9 @@ async def info_lookup(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 
     # Normalize apostrophes before lookup (handles O'/G' on Uzbek keyboards)
     from handlers.guess import _fix_apos
+    # Always clear info mode regardless of outcome
+    context.user_data.pop('awaiting_info', None)
+
     normalized = _fix_apos(text).lower()
     country_uz = MAP_ANY_TO_UZ.get(normalized)
     if not country_uz:

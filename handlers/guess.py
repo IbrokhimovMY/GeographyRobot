@@ -151,14 +151,16 @@ async def handle_guess(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     if len(text) > 100:
         return
 
-    # Info mode: user is answering the info prompt
-    if context.user_data.get('awaiting_info'):
-        await info_lookup(update, context)
-        return
-
+    # Button routes checked FIRST — any button press cancels info mode
     route = _BUTTON_ROUTES.get(_fix_apos(text).lower())
     if route:
+        context.user_data.pop('awaiting_info', None)  # cancel info mode if active
         await route(update, context)
+        return
+
+    # Info mode: user is answering the info prompt (only if no button was pressed)
+    if context.user_data.get('awaiting_info'):
+        await info_lookup(update, context)
         return
 
     chat_id = _chat_id(update)
