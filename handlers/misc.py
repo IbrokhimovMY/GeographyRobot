@@ -147,6 +147,19 @@ async def language_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     )
 
 
+async def admin_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Show admin contact information."""
+    lang = get_user_lang(str(update.effective_user.id))
+    msg = {
+        'uz': "👨‍💼 <b>Admin bo'limi</b>\n\nSavol, taklif yoki xato haqida xabar berish uchun:\n👉 @IbrokhimMY",
+        'ru': "👨‍💼 <b>Раздел Admin</b>\n\nПо вопросам, предложениям или ошибкам:\n👉 @IbrokhimMY",
+        'en': "👨‍💼 <b>Admin Section</b>\n\nFor questions, suggestions or bug reports:\n👉 @IbrokhimMY",
+    }.get(lang, "👨‍💼 <b>Admin</b>\n\n👉 @IbrokhimMY")
+    in_group = update.effective_chat.type in ('group', 'supergroup')
+    await update.message.reply_text(msg, parse_mode='HTML',
+                                    reply_markup=default_kb(lang, in_group))
+
+
 async def users_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """/users — show total user statistics (admin only)."""
     counts = get_user_count()

@@ -118,7 +118,8 @@ STRINGS = {
         'btn_currency': '💰 Valyuta',
         'btn_quiz1': '🎯 Viktorina (variant)',
         'btn_quiz2': '✍️ Viktorina (matn)',
-        'btn_invite': '🔗 Do\'stlarni taklif qil',
+        'btn_invite': "🔗 Do'stlarni taklif qil",
+        'btn_admin': '👨‍💼 Admin',
         'invite_text': (
             "🔗 <b>Do'stlarni taklif qilish</b>\n\n"
             "Quyidagi havolani ulashing — do'stingiz botga qo'shilganda sizning "
@@ -251,6 +252,7 @@ STRINGS = {
         'btn_quiz1': '🎯 Quiz (variants)',
         'btn_quiz2': '✍️ Quiz (text)',
         'btn_invite': '🔗 Invite Friends',
+        'btn_admin': '👨‍💼 Admin',
         'invite_text': (
             "🔗 <b>Invite Friends</b>\n\n"
             "Share this link — when your friend joins the bot, "
@@ -383,6 +385,7 @@ STRINGS = {
         'btn_quiz1': '🎯 Викторина (варианты)',
         'btn_quiz2': '✍️ Викторина (текст)',
         'btn_invite': '🔗 Пригласить друзей',
+        'btn_admin': '👨‍💼 Admin',
         'invite_text': (
             "🔗 <b>Пригласить друзей</b>\n\n"
             "Поделитесь ссылкой — когда друг присоединится к боту, "

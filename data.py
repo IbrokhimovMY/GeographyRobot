@@ -123,6 +123,34 @@ for _uz, _en in COUNTRY_NAMES_EN.items():
 for _uz, _ru in COUNTRY_NAMES_RU.items():
     MAP_ANY_TO_UZ[_ru.lower()] = _uz
 
+# Common short/alias names used by Uzbek speakers
+_ALIASES: dict[str, str] = {
+    # Uzbek abbreviations & short forms
+    "aqsh": "Amerika Qoʻshma Shtatlari",
+    "qoʻshma shtatlar": "Amerika Qoʻshma Shtatlari",
+    "britaniya": "Buyuk Britaniya",
+    "angliya": "Buyuk Britaniya",
+    "arabiston": "Saudiya Arabistoni",
+    "saudiya": "Saudiya Arabistoni",
+    "koreya": "Janubiy Koreya",
+    "janubiy koreya": "Janubiy Koreya",
+    "shimoliy koreya": "Shimoliy Koreya",
+    "xitoy": "Xitoy",
+    "rossiya": "Rossiya",
+    "ukraina": "Ukraina",
+    "hindiston": "Hindiston",
+    "braziliya": "Braziliya",
+    # English short forms
+    "uk": "Buyuk Britaniya",
+    "usa": "Amerika Qoʻshma Shtatlari",
+    "us": "Amerika Qoʻshma Shtatlari",
+    "uae": "Birlashgan Arab Amirliklari",
+    "drc": "Kongo, Demokratik Respublikasi",
+}
+for _alias, _uz_key in _ALIASES.items():
+    if _uz_key in set(COUNTRIES):   # only add if target country exists
+        MAP_ANY_TO_UZ[_alias] = _uz_key
+
 COUNTRIES_CAPITALS: dict[str, str] = {
     "Afgʻoniston": "Kobul", "Albaniya": "Tirana", "Jazoir": "Jazoir",
     "Andorra": "Andorra la Vella", "Angola": "Luanda", "Antigua va Barbuda": "Sent-Jons",

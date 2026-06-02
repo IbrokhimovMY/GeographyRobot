@@ -111,21 +111,28 @@ def init_db() -> None:
                 referred_by      TEXT DEFAULT ''
             )
         ''')
-        if not USE_PG:
-            # Add any missing columns to existing SQLite databases
-            for col, definition in [
-                ('display_name', 'TEXT DEFAULT ""'),
-                ('language', "TEXT DEFAULT 'uz'"),
-                ('daily_facts', 'INTEGER DEFAULT 0'),
-                ('streak', 'INTEGER DEFAULT 0'),
-                ('best_streak', 'INTEGER DEFAULT 0'),
-                ('difficulty', "TEXT DEFAULT 'normal'"),
-                ('continent_filter', "TEXT DEFAULT 'all'"),
-                ('referrals', 'INTEGER DEFAULT 0'),
-                ('referred_by', "TEXT DEFAULT ''"),
-            ]:
+        # Migrate missing columns for both SQLite and PostgreSQL
+        _cols = [
+            ('display_name',     'TEXT DEFAULT \'\''),
+            ('language',         "TEXT DEFAULT 'uz'"),
+            ('daily_facts',      'INTEGER DEFAULT 0'),
+            ('streak',           'INTEGER DEFAULT 0'),
+            ('best_streak',      'INTEGER DEFAULT 0'),
+            ('difficulty',       "TEXT DEFAULT 'normal'"),
+            ('continent_filter', "TEXT DEFAULT 'all'"),
+            ('referrals',        'INTEGER DEFAULT 0'),
+            ('referred_by',      "TEXT DEFAULT ''"),
+        ]
+        if USE_PG:
+            for col, defn in _cols:
                 try:
-                    conn.execute(f'ALTER TABLE users ADD COLUMN {col} {definition}')
+                    _exec(conn, f'ALTER TABLE users ADD COLUMN IF NOT EXISTS {col} {defn}')
+                except Exception:
+                    pass
+        else:
+            for col, defn in _cols:
+                try:
+                    conn.execute(f'ALTER TABLE users ADD COLUMN {col} {defn}')
                 except sqlite3.OperationalError:
                     pass
     logger.info("Database ready (%s). DATABASE_URL set=%s",

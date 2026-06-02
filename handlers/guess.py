@@ -20,7 +20,7 @@ from state import (
 from translations import t, get_country_name
 
 from handlers.game import get_country, get_capital, hint
-from handlers.misc import stats, top, reset, help_command
+from handlers.misc import stats, top, reset, help_command, admin_command
 from handlers.facts import daily_facts_command, _fetch_wiki_fact
 from handlers.flag import get_flag, used_flag_countries
 from handlers.info import info_command, info_lookup
@@ -60,6 +60,7 @@ def _build_routes():
         routes[_fix_apos(s['btn_quiz1']).lower()]        = start_variant_quiz
         routes[_fix_apos(s['btn_quiz2']).lower()]        = start_text_quiz
         routes[_fix_apos(s['btn_invite']).lower()]       = invite_command
+        routes[_fix_apos(s['btn_admin']).lower()]        = admin_command
     return routes
 
 
@@ -99,9 +100,12 @@ def _is_group(update: Update) -> bool:
 
 
 def _fix_apos(s: str) -> str:
-    """Normalize fancy apostrophes (mobile keyboards) to standard ASCII '."""
-    for ch in ('‘', '’', 'ʻ', 'ʼ', 'ʹ', '`', '´', '′'):
-        s = s.replace(ch, "'")
+    """Normalize all apostrophe/quote variants to standard ASCII apostrophe U+0027."""
+    for cp in (0x2018, 0x2019,  # ‘ ‘  LEFT/RIGHT SINGLE QUOTATION MARK
+               0x02BB, 0x02BC, 0x02B9, 0x02BE, 0x02BF,  # modifier letters (Uzbek/Arabic)
+               0x0060, 0x00B4, 0x2032, 0x2035,           # grave, acute, prime variants
+               0x0027):                                   # already straight (no-op)
+        s = s.replace(chr(cp), "’")
     return s
 
 
