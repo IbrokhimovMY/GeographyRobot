@@ -162,6 +162,16 @@ async def handle_guess(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     username = _uname(update)
     lang = _lang(update)
     in_group = _is_group(update)
+
+    # Track the group in DB so /users shows accurate group count
+    if in_group:
+        from database import _ensure_user, _get_conn
+        title = update.effective_chat.title or chat_id
+        try:
+            with _get_conn() as conn:
+                _ensure_user(conn, chat_id, title)
+        except Exception:
+            pass
     guess_uz = _normalize(text)
 
     # --- Custom text test quiz ---

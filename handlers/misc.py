@@ -151,9 +151,10 @@ async def users_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     """/users — show total user statistics (admin only)."""
     counts = get_user_count()
     text = (
-        f"👥 <b>Foydalanuvchilar statistikasi</b>\n\n"
-        f"📋 Jami ro'yxatdan o'tganlar: <b>{counts['total']}</b>\n"
-        f"🎮 Hech bo'lmasa 1 o'yin o'ynaganlar: <b>{counts['active']}</b>\n"
-        f"📅 Kunlik faktlarga obunalar: <b>{counts['subscribers']}</b>"
+        f"👥 <b>Bot statistikasi</b>\n\n"
+        f"👤 Foydalanuvchilar: <b>{counts['total']}</b>\n"
+        f"🏠 Ulangan guruhlar: <b>{counts['groups']}</b>\n"
+        f"🎮 Faol o'yinchilar: <b>{counts['active']}</b>\n"
+        f"📅 Kunlik faktlar obunasi: <b>{counts['subscribers']}</b>"
     )
     await update.message.reply_text(text, parse_mode='HTML')

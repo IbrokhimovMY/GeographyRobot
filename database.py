@@ -255,18 +255,23 @@ def toggle_daily_facts(user_id: str, username: str) -> bool:
 
 
 def get_user_count() -> dict:
-    """Return user statistics: total, active players, daily_facts subscribers."""
+    """Return user/group statistics."""
     with _get_conn() as conn:
-        total = _exec(conn, 'SELECT COUNT(*) FROM users').fetchone()[0]
-        # Users who have played at least one game
+        # Real users have positive IDs; group chat IDs are negative
+        total = _exec(conn,
+            "SELECT COUNT(*) FROM users WHERE user_id NOT LIKE '-%'"
+        ).fetchone()[0]
         active = _exec(conn,
-            'SELECT COUNT(*) FROM users WHERE correct_country + wrong_country + '
-            'correct_capital + wrong_capital + timeout_capital > 0'
+            "SELECT COUNT(*) FROM users WHERE user_id NOT LIKE '-%' AND "
+            "correct_country + wrong_country + correct_capital + wrong_capital + timeout_capital > 0"
+        ).fetchone()[0]
+        groups = _exec(conn,
+            "SELECT COUNT(*) FROM users WHERE user_id LIKE '-%'"
         ).fetchone()[0]
         subscribers = _exec(conn,
             'SELECT COUNT(*) FROM users WHERE daily_facts = 1'
         ).fetchone()[0]
-    return {'total': total, 'active': active, 'subscribers': subscribers}
+    return {'total': total, 'active': active, 'groups': groups, 'subscribers': subscribers}
 
 
 def get_daily_facts_subscribers() -> list:
