@@ -7,7 +7,7 @@ from telegram.ext import ContextTypes
 
 from database import (
     get_user_lang, get_display_name, set_user_lang,
-    get_stats, get_top_users,
+    get_stats, get_top_users, get_user_count,
 )
 from keyboards import default_kb, CHANGE_LANG_KB
 from state import (
@@ -145,3 +145,15 @@ async def language_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) 
         text=t(new_lang, 'welcome'),
         reply_markup=default_kb(new_lang),
     )
+
+
+async def users_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """/users — show total user statistics (admin only)."""
+    counts = get_user_count()
+    text = (
+        f"👥 <b>Foydalanuvchilar statistikasi</b>\n\n"
+        f"📋 Jami ro'yxatdan o'tganlar: <b>{counts['total']}</b>\n"
+        f"🎮 Hech bo'lmasa 1 o'yin o'ynaganlar: <b>{counts['active']}</b>\n"
+        f"📅 Kunlik faktlarga obunalar: <b>{counts['subscribers']}</b>"
+    )
+    await update.message.reply_text(text, parse_mode='HTML')

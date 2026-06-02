@@ -12,7 +12,7 @@ from handlers.game import get_country, get_capital, hint
 from handlers.guess import handle_guess, handle_webapp_data
 from handlers.misc import (
     stats, top, reset, help_command,
-    language_command, language_callback,
+    language_command, language_callback, users_command,
 )
 from handlers.facts import daily_facts_command, send_daily_facts, test_fact_command
 from handlers.flag import get_flag
@@ -70,6 +70,7 @@ def main() -> None:
     app.add_handler(CommandHandler('quiz2',      start_text_quiz))
     app.add_handler(CommandHandler('stopquiz',   stop_quiz))
     app.add_handler(CommandHandler('invite',     invite_command))
+    app.add_handler(CommandHandler('users',      users_command))
 
     # Utility commands
     app.add_handler(CommandHandler('stats',      stats))

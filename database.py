@@ -254,6 +254,21 @@ def toggle_daily_facts(user_id: str, username: str) -> bool:
     return bool(new_state)
 
 
+def get_user_count() -> dict:
+    """Return user statistics: total, active players, daily_facts subscribers."""
+    with _get_conn() as conn:
+        total = _exec(conn, 'SELECT COUNT(*) FROM users').fetchone()[0]
+        # Users who have played at least one game
+        active = _exec(conn,
+            'SELECT COUNT(*) FROM users WHERE correct_country + wrong_country + '
+            'correct_capital + wrong_capital + timeout_capital > 0'
+        ).fetchone()[0]
+        subscribers = _exec(conn,
+            'SELECT COUNT(*) FROM users WHERE daily_facts = 1'
+        ).fetchone()[0]
+    return {'total': total, 'active': active, 'subscribers': subscribers}
+
+
 def get_daily_facts_subscribers() -> list:
     with _get_conn() as conn:
         return _exec(conn, 'SELECT user_id, language FROM users WHERE daily_facts = 1').fetchall()
