@@ -7,7 +7,7 @@ from telegram.ext import ContextTypes
 
 from database import (
     get_user_lang, get_display_name, set_user_lang,
-    get_stats, get_top_users, get_user_count,
+    get_stats, get_top_users, get_user_count, get_user_rank,
 )
 from keyboards import default_kb, CHANGE_LANG_KB
 from state import (
@@ -66,14 +66,18 @@ async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 
 async def top(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    user_id = str(update.effective_user.id)
     lang = _lang(update)
+    in_group = update.effective_chat.type in ('group', 'supergroup')
     rows = get_top_users(10)
     if not rows:
-        await update.message.reply_text(t(lang, 'top_no_players'), reply_markup=default_kb(lang, update.effective_chat.type in ("group","supergroup")))
+        await update.message.reply_text(t(lang, 'top_no_players'),
+                                        reply_markup=default_kb(lang, in_group))
         return
 
     medals = ['🥇', '🥈', '🥉']
     lines = [t(lang, 'top_header')]
+    user_in_top = False
     for i, (name, total_correct, total_games) in enumerate(rows, 1):
         medal = medals[i - 1] if i <= 3 else f"{i}."
         pct = round(total_correct / total_games * 100) if total_games else 0
@@ -81,7 +85,20 @@ async def top(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                        medal=medal, name=html.escape(str(name)),
                        pct=pct, correct=total_correct, total=total_games))
 
-    await update.message.reply_text('\n'.join(lines), parse_mode='HTML', reply_markup=default_kb(lang, update.effective_chat.type in ("group","supergroup")))
+    # Show user's own rank if not in top 10
+    my_rank = get_user_rank(user_id)
+    if my_rank and my_rank['rank'] > 10:
+        sep = '─' * 20
+        rank_label = {
+            'uz': f"📍 Siz: {my_rank['rank']}-o'rin",
+            'ru': f"📍 Вы: {my_rank['rank']}-е место",
+            'en': f"📍 You: #{my_rank['rank']}",
+        }.get(lang, f"📍 #{my_rank['rank']}")
+        lines.append(f"\n{sep}\n{rank_label} — {my_rank['pct']}% "
+                     f"({my_rank['correct']}/{my_rank['total']})")
+
+    await update.message.reply_text('\n'.join(lines), parse_mode='HTML',
+                                    reply_markup=default_kb(lang, in_group))
 
 
 async def reset(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:

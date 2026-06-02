@@ -281,6 +281,43 @@ def get_user_count() -> dict:
     return {'total': total, 'active': active, 'groups': groups, 'subscribers': subscribers}
 
 
+def get_user_rank(user_id: str) -> dict | None:
+    """Return rank, correct, total, pct for a user. None if no games played."""
+    with _get_conn() as conn:
+        row = _exec(conn,
+            'SELECT correct_country + correct_capital, '
+            'correct_country + wrong_country + correct_capital + wrong_capital + timeout_capital '
+            'FROM users WHERE user_id = ?', (user_id,)
+        ).fetchone()
+        if not row or row[1] == 0:
+            return None
+        correct, total = row
+        pct = correct / total
+
+        # Rank = users with strictly higher pct + users with same pct but more correct + 1
+        higher = _exec(conn,
+            'SELECT COUNT(*) FROM users WHERE '
+            'correct_country + wrong_country + correct_capital + wrong_capital + timeout_capital > 0 AND '
+            'CAST(correct_country + correct_capital AS REAL) / '
+            '(correct_country + wrong_country + correct_capital + wrong_capital + timeout_capital) > ?',
+            (pct,)
+        ).fetchone()[0]
+        same_better = _exec(conn,
+            'SELECT COUNT(*) FROM users WHERE '
+            'correct_country + wrong_country + correct_capital + wrong_capital + timeout_capital > 0 AND '
+            'CAST(correct_country + correct_capital AS REAL) / '
+            '(correct_country + wrong_country + correct_capital + wrong_capital + timeout_capital) = ? AND '
+            'correct_country + correct_capital > ?',
+            (pct, correct)
+        ).fetchone()[0]
+        return {
+            'rank': higher + same_better + 1,
+            'correct': correct,
+            'total': total,
+            'pct': round(pct * 100),
+        }
+
+
 def get_daily_facts_subscribers() -> list:
     with _get_conn() as conn:
         return _exec(conn, 'SELECT user_id, language FROM users WHERE daily_facts = 1').fetchall()
