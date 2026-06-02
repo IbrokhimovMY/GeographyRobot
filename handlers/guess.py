@@ -100,18 +100,33 @@ def _is_group(update: Update) -> bool:
 
 
 def _fix_apos(s: str) -> str:
-    """Normalize all apostrophe/quote variants to standard ASCII apostrophe U+0027."""
-    for cp in (0x2018, 0x2019,  # ‘ ‘  LEFT/RIGHT SINGLE QUOTATION MARK
-               0x02BB, 0x02BC, 0x02B9, 0x02BE, 0x02BF,  # modifier letters (Uzbek/Arabic)
-               0x0060, 0x00B4, 0x2032, 0x2035,           # grave, acute, prime variants
-               0x0027):                                   # already straight (no-op)
+    """Normalize all apostrophe/quote variants to ASCII apostrophe U+0027."""
+    for cp in (0x2018, 0x2019,  # ‘ ‘
+               0x02BB, 0x02BC, 0x02B9, 0x02BE, 0x02BF,
+               0x0060, 0x00B4, 0x2032, 0x2035):
         s = s.replace(chr(cp), "’")
     return s
 
 
 def _normalize(text: str) -> str:
-    text = _fix_apos(text.strip())
-    return MAP_ANY_TO_UZ.get(text.lower(), text)
+    """Normalize apostrophes and look up in MAP_ANY_TO_UZ.
+    data.py uses U+02BB (ʻ) in keys, so we try both U+0027 and U+02BB variants.
+    """
+    cleaned = _fix_apos(text.strip())
+    key = cleaned.lower()
+
+    # 1. Try with U+0027 (ASCII apostrophe) — covers English/Russian forms
+    result = MAP_ANY_TO_UZ.get(key)
+    if result:
+        return result
+
+    # 2. Try with U+02BB (Uzbek modifier letter) — used in data.py country keys
+    key_uz = key.replace("\x27", "ʻ")
+    result = MAP_ANY_TO_UZ.get(key_uz)
+    if result:
+        return result
+
+    return cleaned
 
 
 def _streak_suffix(user_id: str, username: str, lang: str) -> str:
