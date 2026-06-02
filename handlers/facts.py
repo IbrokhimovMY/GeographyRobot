@@ -65,6 +65,52 @@ def _month_name(month: int, lang: str) -> str:
     return _MONTHS.get(lang, _MONTHS['en'])[month - 1]
 
 
+def _build_local_uz_fact(lang: str = 'uz') -> str | None:
+    """
+    Return a date-based geographic fact from our curated database.
+    Finds the closest entry to today's date.
+    """
+    from uz_daily_facts import UZ_DATE_FACTS
+    today = datetime.date.today()
+    m, d = today.month, today.day
+
+    # Find exact match first, then same month, then any
+    exact   = [(y, uz, ru, en) for mo, dy, y, uz, ru, en in UZ_DATE_FACTS if mo == m and dy == d]
+    month   = [(y, uz, ru, en) for mo, dy, y, uz, ru, en in UZ_DATE_FACTS if mo == m]
+    fallback= [(y, uz, ru, en) for mo, dy, y, uz, ru, en in UZ_DATE_FACTS]
+
+    pool = exact or month or fallback
+    if not pool:
+        return None
+
+    year, uz_text, ru_text, en_text = random.choice(pool)
+
+    text = uz_text if lang == 'uz' else (ru_text if lang == 'ru' else en_text)
+
+    month_names = {
+        'uz': ["Yanvar","Fevral","Mart","Aprel","May","Iyun",
+               "Iyul","Avgust","Sentabr","Oktabr","Noyabr","Dekabr"],
+        'ru': ["Января","Февраля","Марта","Апреля","Мая","Июня",
+               "Июля","Августа","Сентября","Октября","Ноября","Декабря"],
+        'en': ["January","February","March","April","May","June",
+               "July","August","September","October","November","December"],
+    }
+    month_str = month_names.get(lang, month_names['en'])[m - 1]
+
+    date_label = f"{d} {month_str}" if lang in ('uz', 'ru') else f"{month_str} {d}"
+    year_label = {
+        'uz': f"{year} yilda bu kunda:",
+        'ru': f"В этот день в {year} году:",
+        'en': f"On this day in {year}:",
+    }.get(lang, f"In {year}:")
+
+    return (
+        f"🗓 <b>{date_label}</b>\n\n"
+        f"<i>{html.escape(year_label)}</i>\n\n"
+        f"{html.escape(text)}"
+    )
+
+
 async def _fetch_onthisday(lang: str) -> str | None:
     """
     Fetch a geographic 'On This Day' fact via Wikipedia's feed API.
@@ -74,8 +120,15 @@ async def _fetch_onthisday(lang: str) -> str | None:
     today = datetime.date.today()
     m, d = today.month, today.day
 
-    # Language priority: user lang → English
-    wiki_langs = [lang, 'en'] if lang != 'en' else ['en']
+    # Language priority:
+    # uz → use local Uzbek facts (Wikipedia uz feed doesn't exist)
+    # ru → ru, en
+    # en → en
+    if lang in ('uz', 'ru'):
+        # Use our curated date-based database (Wikipedia uz/ru feeds unreliable)
+        return _build_local_uz_fact(lang)
+    else:
+        wiki_langs = ['en']
 
     async with httpx.AsyncClient(timeout=20, follow_redirects=True,
                                   headers=_WIKI_HEADERS) as client:

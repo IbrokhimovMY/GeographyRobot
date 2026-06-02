@@ -32,13 +32,12 @@ async def info_lookup(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     lang = _lang(update)
     text = update.message.text.strip()
 
-    # Normalize apostrophes before lookup (handles O'/G' on Uzbek keyboards)
-    from handlers.guess import _fix_apos
     # Always clear info mode regardless of outcome
     context.user_data.pop('awaiting_info', None)
 
-    normalized = _fix_apos(text).lower()
-    country_uz = MAP_ANY_TO_UZ.get(normalized)
+    # Use _normalize: tries both ASCII and Uzbek apostrophe (U+02BB) variants
+    from handlers.guess import _normalize
+    country_uz = MAP_ANY_TO_UZ.get(_normalize(text))
     if not country_uz:
         await update.message.reply_text(t(lang, 'info_not_found'), reply_markup=default_kb(lang))
         return
