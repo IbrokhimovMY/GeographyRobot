@@ -25,6 +25,9 @@ from handlers.quiz import (
 )
 from handlers.poll_quiz import handle_poll_answer
 from handlers.invite import invite_command
+from handlers.user_quiz import (
+    build_addquestion_handler, myquestions_command, myquestions_delete,
+)
 from handlers.settings import (
     region_command, region_callback,
     difficulty_command, difficulty_callback,
@@ -56,6 +59,7 @@ def main() -> None:
 
     # Onboarding must be first
     app.add_handler(build_onboarding_handler())
+    app.add_handler(build_addquestion_handler())
 
     # Game commands
     app.add_handler(CommandHandler('language',   language_command))
@@ -72,6 +76,8 @@ def main() -> None:
     app.add_handler(CommandHandler('invite',     invite_command))
     app.add_handler(CommandHandler('users',      users_command))
     app.add_handler(CommandHandler('admin',      admin_command))
+    app.add_handler(CommandHandler('myquestions', myquestions_command))
+    app.add_handler(CallbackQueryHandler(myquestions_delete, pattern=r'^aq_del:'))
 
     # Utility commands
     app.add_handler(CommandHandler('stats',      stats))

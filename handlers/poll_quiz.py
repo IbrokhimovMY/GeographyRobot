@@ -421,3 +421,128 @@ async def _finish_custom_text(context: ContextTypes.DEFAULT_TYPE,
         text=_finish_msg(quiz.get('lang', 'uz'), quiz.get('scores', {})),
         parse_mode='HTML',
     )
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+#  USER QUESTIONS POLL QUIZ  (native Telegram polls from user-created questions)
+# ══════════════════════════════════════════════════════════════════════════════
+
+async def start_user_poll_quiz(chat_id: str, lang: str, secs: int,
+                                context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Start a poll quiz using user-created questions."""
+    from database import get_random_user_questions, count_user_questions
+
+    if chat_id in active_poll_quizzes or chat_id in active_custom_text_quizzes:
+        await context.bot.send_message(
+            chat_id=int(chat_id),
+            text={'uz': "⚠️ Allaqachon quiz bor! /stopquiz.",
+                  'ru': "⚠️ Квиз уже идёт! /stopquiz.",
+                  'en': "⚠️ A quiz is already running! /stopquiz."}.get(lang, "⚠️")
+        )
+        return
+
+    questions = get_random_user_questions(lang, limit=POLL_QUIZ_SIZE)
+    if not questions:
+        total = count_user_questions()
+        no_q = {
+            'uz': f"📭 Bu tilda foydalanuvchi savollari yo'q.\nJami: {total} ta. /addquestion orqali qo'shing!",
+            'ru': f"📭 Нет вопросов на этом языке.\nВсего: {total}. Добавьте через /addquestion!",
+            'en': f"📭 No user questions for this language.\nTotal: {total}. Add via /addquestion!",
+        }.get(lang, "📭 No questions found.")
+        await context.bot.send_message(chat_id=int(chat_id), text=no_q)
+        return
+
+    active_poll_quizzes[chat_id] = {
+        'questions': questions, 'current': 0, 'is_user_q': True,
+        'scores': {}, 'poll_id': None, 'job': None,
+        'lang': lang, 'question_time': None, 'answered_poll': set(),
+        'timeout_secs': secs,
+    }
+
+    n = len(questions)
+    start_msg = {
+        'uz': f"✍️ <b>Foydalanuvchi savollari!</b>\n{n} ta savol · Har biriga {secs} soniya",
+        'ru': f"✍️ <b>Вопросы пользователей!</b>\n{n} вопросов · {secs} секунд каждый",
+        'en': f"✍️ <b>User Questions Quiz!</b>\n{n} questions · {secs}s each",
+    }.get(lang, "✍️ User Questions Quiz!")
+
+    await context.bot.send_message(chat_id=int(chat_id), text=start_msg, parse_mode='HTML')
+    await _send_user_poll_q(context, chat_id)
+
+
+async def _send_user_poll_q(context: ContextTypes.DEFAULT_TYPE, chat_id: str) -> None:
+    quiz = active_poll_quizzes.get(chat_id)
+    if not quiz or not quiz.get('is_user_q'):
+        return
+
+    idx   = quiz['current']
+    total = len(quiz['questions'])
+    q     = quiz['questions'][idx]
+    lang  = quiz['lang']
+
+    # Shuffle options, track correct
+    from custom_quiz_data import CUSTOM_QUESTIONS as _dummy  # ensure import works
+    opts_orig = q['opts']
+    correct_orig = q['correct']
+    indexed = list(enumerate(opts_orig))
+    random.shuffle(indexed)
+    shuffled = [o for _, o in indexed]
+    new_correct = next(i for i, (orig, _) in enumerate(indexed) if orig == correct_orig)
+
+    quiz.update(poll_id=None, answered_poll=set(),
+                question_time=time.time(),
+                current_correct_idx=new_correct)
+
+    author = q.get('author', '')
+    q_text = f"[{idx+1}/{total}] {q['question']}"
+    if author:
+        q_text += f"\n👤 @{author}" if author.startswith('@') else f"\n👤 {author}"
+
+    try:
+        msg = await context.bot.send_poll(
+            chat_id=int(chat_id),
+            question=q_text[:300],
+            options=[o[:100] for o in shuffled],
+            type='quiz',
+            correct_option_id=new_correct,
+            is_anonymous=False,
+            open_period=quiz.get('timeout_secs', POLL_SECS),
+        )
+        quiz['poll_id'] = msg.poll.id
+        quiz['msg_id']  = msg.message_id
+    except Exception as e:
+        logger.error("send_user_poll_q error: %s", e)
+
+    if quiz.get('job'):
+        try: quiz['job'].schedule_removal()
+        except Exception: pass
+
+    quiz['job'] = context.application.job_queue.run_once(
+        _user_poll_advance,
+        quiz.get('timeout_secs', POLL_SECS) + 2,
+        data={'chat_id': chat_id},
+        name=f"upollquiz_{chat_id}_{idx}",
+    )
+
+
+async def _user_poll_advance(context: ContextTypes.DEFAULT_TYPE) -> None:
+    chat_id = context.job.data['chat_id']
+    quiz = active_poll_quizzes.get(chat_id)
+    if not quiz or not quiz.get('is_user_q'):
+        return
+    quiz['current'] += 1
+    if quiz['current'] >= len(quiz['questions']):
+        await _finish_poll(context, chat_id)
+    else:
+        context.application.job_queue.run_once(
+            _send_next_user_poll_job, 1,
+            data={'chat_id': chat_id},
+            name=f"upollquiz_next_{chat_id}_{quiz['current']}",
+        )
+
+
+async def _send_next_user_poll_job(context: ContextTypes.DEFAULT_TYPE) -> None:
+    try:
+        await _send_user_poll_q(context, context.job.data['chat_id'])
+    except Exception as e:
+        logger.error("send_next_user_poll_job error: %s", e)

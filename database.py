@@ -117,6 +117,42 @@ def init_db() -> None:
                 referred_by      TEXT DEFAULT ''
             )
         ''')
+        # User-created quiz questions
+        if USE_PG:
+            _exec(conn, '''
+                CREATE TABLE IF NOT EXISTS user_questions (
+                    id          SERIAL PRIMARY KEY,
+                    author_id   TEXT NOT NULL,
+                    author_name TEXT DEFAULT '',
+                    question    TEXT NOT NULL,
+                    opt_a       TEXT NOT NULL,
+                    opt_b       TEXT NOT NULL,
+                    opt_c       TEXT NOT NULL,
+                    opt_d       TEXT NOT NULL,
+                    correct     INTEGER NOT NULL,
+                    lang        TEXT DEFAULT 'uz',
+                    use_count   INTEGER DEFAULT 0,
+                    created_at  TIMESTAMP DEFAULT NOW()
+                )
+            ''')
+        else:
+            conn.execute('''
+                CREATE TABLE IF NOT EXISTS user_questions (
+                    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                    author_id   TEXT NOT NULL,
+                    author_name TEXT DEFAULT '',
+                    question    TEXT NOT NULL,
+                    opt_a       TEXT NOT NULL,
+                    opt_b       TEXT NOT NULL,
+                    opt_c       TEXT NOT NULL,
+                    opt_d       TEXT NOT NULL,
+                    correct     INTEGER NOT NULL,
+                    lang        TEXT DEFAULT 'uz',
+                    use_count   INTEGER DEFAULT 0,
+                    created_at  TEXT DEFAULT (datetime('now'))
+                )
+            ''')
+
         # Migrate missing columns for both SQLite and PostgreSQL
         _cols = [
             ('display_name',     'TEXT DEFAULT \'\''),
@@ -362,3 +398,71 @@ def get_referral_count(user_id: str) -> int:
     with _get_conn() as conn:
         row = _exec(conn, 'SELECT referrals FROM users WHERE user_id = ?', (user_id,)).fetchone()
     return row[0] if row else 0
+
+
+# ── User-created questions ────────────────────────────────────────────────────
+
+def add_user_question(author_id: str, author_name: str, question: str,
+                      opts: list[str], correct: int, lang: str) -> int:
+    """Save a user question. Returns the new question id."""
+    with _get_conn() as conn:
+        cur = _exec(conn,
+            'INSERT INTO user_questions (author_id, author_name, question, '
+            'opt_a, opt_b, opt_c, opt_d, correct, lang) '
+            'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            (author_id, author_name, question,
+             opts[0], opts[1], opts[2], opts[3], correct, lang),
+        )
+        if USE_PG:
+            row = _exec(conn, 'SELECT lastval()').fetchone()
+            return row[0] if row else 0
+        return cur.lastrowid
+
+
+def get_user_questions(author_id: str) -> list[dict]:
+    """Return all questions by a specific user."""
+    with _get_conn() as conn:
+        rows = _exec(conn,
+            'SELECT id, question, opt_a, opt_b, opt_c, opt_d, correct, lang, use_count '
+            'FROM user_questions WHERE author_id = ? ORDER BY id DESC',
+            (author_id,),
+        ).fetchall()
+    return [{'id': r[0], 'question': r[1],
+             'opts': [r[2], r[3], r[4], r[5]],
+             'correct': r[6], 'lang': r[7], 'use_count': r[8]}
+            for r in rows]
+
+
+def get_random_user_questions(lang: str, limit: int = 20) -> list[dict]:
+    """Return random questions for quiz (all authors, matching language)."""
+    with _get_conn() as conn:
+        rows = _exec(conn,
+            'SELECT id, question, opt_a, opt_b, opt_c, opt_d, correct, author_name '
+            'FROM user_questions WHERE lang = ? '
+            'ORDER BY RANDOM() LIMIT ?',
+            (lang, limit),
+        ).fetchall()
+    return [{'id': r[0], 'question': r[1],
+             'opts': [r[2], r[3], r[4], r[5]],
+             'correct': r[6], 'author': r[7]}
+            for r in rows]
+
+
+def count_user_questions(lang: str = None) -> int:
+    """Count total user questions."""
+    with _get_conn() as conn:
+        if lang:
+            row = _exec(conn, 'SELECT COUNT(*) FROM user_questions WHERE lang = ?', (lang,)).fetchone()
+        else:
+            row = _exec(conn, 'SELECT COUNT(*) FROM user_questions').fetchone()
+    return row[0] if row else 0
+
+
+def delete_user_question(question_id: int, author_id: str) -> bool:
+    """Delete a question (only the author can delete)."""
+    with _get_conn() as conn:
+        _exec(conn,
+            'DELETE FROM user_questions WHERE id = ? AND author_id = ?',
+            (question_id, author_id),
+        )
+    return True

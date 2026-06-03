@@ -437,10 +437,12 @@ _DIFF_LABELS = None   # not used directly — use _diff_labels()
 
 
 def _v1_kb(lang: str) -> IKM:
-    """Quiz1 (variant): 6 buttons — 3 difficulties × 2 modes (geo/test)."""
+    """Quiz1 (variant): geo + test + user-questions rows."""
     dl   = _diff_labels(lang, _DIFF_SECS_V1)
     geo  = '🌍'
     test = '📚'
+    usr_lbl = {'uz': '✍️ Foydalanuvchi savollari', 'ru': '✍️ Вопросы пользователей',
+               'en': '✍️ User questions'}.get(lang, '✍️ User questions')
     return IKM([
         [IKB(f"{geo} {dl['easy']}", callback_data="q1:geo:easy"),
          IKB(f"{geo} {dl['med']}",  callback_data="q1:geo:med"),
@@ -448,6 +450,7 @@ def _v1_kb(lang: str) -> IKM:
         [IKB(f"{test} {dl['easy']}", callback_data="q1:test:easy"),
          IKB(f"{test} {dl['med']}",  callback_data="q1:test:med"),
          IKB(f"{test} {dl['hard']}", callback_data="q1:test:hard")],
+        [IKB(usr_lbl, callback_data="q1:user:med")],
     ])
 
 
@@ -877,6 +880,9 @@ async def handle_quiz_diff_callback(update: Update,
         if mode == 'test':
             from handlers.poll_quiz import start_poll_quiz
             await start_poll_quiz(chat_id, lang, secs, context)
+        elif mode == 'user':
+            from handlers.poll_quiz import start_user_poll_quiz
+            await start_user_poll_quiz(chat_id, lang, secs, context)
         else:
             await _launch_geo_variant(chat_id, lang, secs, context)
 
