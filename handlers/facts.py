@@ -182,24 +182,11 @@ async def _fetch_onthisday(lang: str) -> str | None:
 # ─── kept for mini-app / in-game result facts (still used in guess.py) ────────
 
 async def _fetch_wiki_fact(country_uz: str, lang: str) -> str | None:
-    """Return a fact about a country. For Uzbek: use local data first."""
-    # Uzbek: Wikipedia coverage is poor — use local COUNTRY_HINTS_UZ directly
-    if lang == 'uz':
-        from data import COUNTRY_HINTS_UZ, COUNTRIES_CAPITALS, COUNTRY_FLAGS
-        from translations import get_country_name
-        hint = COUNTRY_HINTS_UZ.get(country_uz, '')
-        if hint:
-            name = get_country_name(country_uz, 'uz')
-            cap  = COUNTRIES_CAPITALS.get(country_uz, '')
-            flag = COUNTRY_FLAGS.get(country_uz, '')
-            cap_line = f" Poytaxti — {cap}." if cap else ""
-            return f"{hint}{cap_line}"
-        # If no local hint, skip (don't show English)
-        return None
-
+    """Return a Wikipedia extract for a country. Used after correct answers."""
     # Use override first (e.g., Türkiye instead of Turkey to avoid disambiguation)
     country_en = _WIKI_OVERRIDES.get(country_uz) or _UZ_TO_EN.get(country_uz, country_uz)
     title = urllib.parse.quote(country_en.replace(' ', '_'))
+    # Try user's language first, fall back to English
     langs_to_try = ['en'] if lang == 'en' else [lang, 'en']
 
     async with httpx.AsyncClient(timeout=15, follow_redirects=True,
@@ -225,11 +212,7 @@ async def _fetch_wiki_fact(country_uz: str, lang: str) -> str | None:
 
 
 async def fetch_wiki_sentences(country_uz: str, lang: str, max_sentences: int = 5) -> list[str]:
-    """Return sentences for progressive hints. Uzbek uses local data."""
-    if lang == 'uz':
-        # Wikipedia uz coverage is poor — return empty so hints use local progression
-        return []
-
+    """Return Wikipedia sentences for progressive hints in-game (user's language first)."""
     country_en = _WIKI_OVERRIDES.get(country_uz) or _UZ_TO_EN.get(country_uz, country_uz)
 
     # Try user's language first, fall back to English
