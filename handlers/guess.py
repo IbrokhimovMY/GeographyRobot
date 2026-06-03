@@ -101,10 +101,12 @@ def _is_group(update: Update) -> bool:
 
 def _fix_apos(s: str) -> str:
     """Normalize all apostrophe/quote variants to ASCII apostrophe U+0027."""
-    for cp in (0x2018, 0x2019,  # ‘ ‘
+    # chr(0x27) = ASCII apostrophe — using chr() prevents editor from converting it
+    apos = chr(0x27)
+    for cp in (0x2018, 0x2019,
                0x02BB, 0x02BC, 0x02B9, 0x02BE, 0x02BF,
                0x0060, 0x00B4, 0x2032, 0x2035):
-        s = s.replace(chr(cp), "’")
+        s = s.replace(chr(cp), apos)
     return s
 
 
