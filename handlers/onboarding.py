@@ -68,6 +68,10 @@ async def lang_selected(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
 
     await query.edit_message_text(t(lang, 'language_set'))
 
+    # Update command menu to match user's chosen language
+    from main import set_user_commands
+    await set_user_commands(context.bot, int(user_id), lang)
+
     # Returning user (already has a name) — go straight to main keyboard
     if get_display_name(user_id):
         # Still credit referral for returning users who haven't been referred before

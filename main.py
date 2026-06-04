@@ -48,36 +48,49 @@ async def _post_init(application) -> None:
     await _set_commands(application.bot)
 
 
-async def _set_commands(bot) -> None:
-    from telegram import BotCommand
-    cmds_uz = [
-        BotCommand("start",         "Botni boshlash"),
-        BotCommand("addquestion",   "📝 Savol qo'shish"),
-        BotCommand("myquestions",   "📋 Mening savollarim"),
-        BotCommand("stopquiz",      "⏹ Quizni to'xtatish"),
-        BotCommand("admin",         "👨‍💼 Admin bilan bog'lanish"),
-    ]
-    cmds_ru = [
-        BotCommand("start",         "Запустить бота"),
-        BotCommand("addquestion",   "📝 Добавить вопрос"),
-        BotCommand("myquestions",   "📋 Мои вопросы"),
-        BotCommand("stopquiz",      "⏹ Остановить квиз"),
-        BotCommand("admin",         "👨‍💼 Связаться с Admin"),
-    ]
-    cmds_en = [
-        BotCommand("start",         "Start the bot"),
-        BotCommand("addquestion",   "📝 Add a question"),
-        BotCommand("myquestions",   "📋 My questions"),
-        BotCommand("stopquiz",      "⏹ Stop quiz"),
-        BotCommand("admin",         "👨‍💼 Contact Admin"),
-    ]
+_BOT_COMMANDS = {
+    'uz': [
+        ('start',         "Botni boshlash"),
+        ('addquestion',   "📝 Savol qo'shish"),
+        ('myquestions',   "📋 Mening savollarim"),
+        ('stopquiz',      "⏹ Quizni to'xtatish"),
+        ('admin',         "👨‍💼 Admin bilan bog'lanish"),
+    ],
+    'ru': [
+        ('start',         "Запустить бота"),
+        ('addquestion',   "📝 Добавить вопрос"),
+        ('myquestions',   "📋 Мои вопросы"),
+        ('stopquiz',      "⏹ Остановить квиз"),
+        ('admin',         "👨‍💼 Связаться с Admin"),
+    ],
+    'en': [
+        ('start',         "Start the bot"),
+        ('addquestion',   "📝 Add a question"),
+        ('myquestions',   "📋 My questions"),
+        ('stopquiz',      "⏹ Stop quiz"),
+        ('admin',         "👨‍💼 Contact Admin"),
+    ],
+}
+
+
+async def set_user_commands(bot, user_id: int, lang: str) -> None:
+    """Set command menu for a specific user based on their chosen bot language."""
+    from telegram import BotCommand, BotCommandScopeChat
+    pairs = _BOT_COMMANDS.get(lang, _BOT_COMMANDS['uz'])
+    cmds = [BotCommand(cmd, desc) for cmd, desc in pairs]
     try:
-        await bot.set_my_commands(cmds_uz, language_code='uz')
-        await bot.set_my_commands(cmds_ru, language_code='ru')
-        await bot.set_my_commands(cmds_uz)          # default (English)
-        await bot.set_my_commands(cmds_en, language_code='en')
+        await bot.set_my_commands(cmds, scope=BotCommandScopeChat(chat_id=user_id))
     except Exception as e:
-        logging.getLogger(__name__).warning("set_my_commands failed: %s", e)
+        logging.getLogger(__name__).debug("set_user_commands failed uid=%s: %s", user_id, e)
+
+
+async def _set_commands(bot) -> None:
+    """Remove global default commands (each user gets their own via set_user_commands)."""
+    try:
+        from telegram import BotCommandScopeDefault
+        await bot.delete_my_commands(scope=BotCommandScopeDefault())
+    except Exception as e:
+        logging.getLogger(__name__).debug("delete_my_commands: %s", e)
 
 
 def main() -> None:

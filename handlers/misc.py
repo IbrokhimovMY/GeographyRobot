@@ -162,6 +162,9 @@ async def language_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) 
         text=t(new_lang, 'welcome'),
         reply_markup=default_kb(new_lang),
     )
+    # Update command menu to match newly selected language
+    from main import set_user_commands
+    await set_user_commands(context.bot, int(user_id), new_lang)
 
 
 async def admin_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
