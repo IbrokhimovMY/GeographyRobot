@@ -74,7 +74,7 @@ async def _set_commands(bot) -> None:
     try:
         await bot.set_my_commands(cmds_uz, language_code='uz')
         await bot.set_my_commands(cmds_ru, language_code='ru')
-        await bot.set_my_commands(cmds_en)          # default (English)
+        #await bot.set_my_commands(cmds_en)          # default (English)
         await bot.set_my_commands(cmds_en, language_code='en')
     except Exception as e:
         logging.getLogger(__name__).warning("set_my_commands failed: %s", e)
