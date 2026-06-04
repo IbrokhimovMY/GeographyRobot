@@ -45,6 +45,72 @@ logging.basicConfig(
 
 async def _post_init(application) -> None:
     await start_api_server(port=API_PORT)
+    await _set_commands(application.bot)
+
+
+async def _set_commands(bot) -> None:
+    from telegram import BotCommand
+    cmds_uz = [
+        BotCommand("start",         "Botni boshlash"),
+        BotCommand("getcountry",    "🌍 Davlat topish"),
+        BotCommand("getcapital",    "🏙 Poytaxt topish"),
+        BotCommand("getflag",       "🚩 Bayroq topish"),
+        BotCommand("getcurrency",   "💰 Valyuta o'yini"),
+        BotCommand("quiz1",         "🎯 Viktorina (variant)"),
+        BotCommand("quiz2",         "✍️ Viktorina (matn)"),
+        BotCommand("addquestion",   "📝 Savol qo'shish"),
+        BotCommand("myquestions",   "📋 Mening savollarim"),
+        BotCommand("top",           "🏆 Reyting"),
+        BotCommand("stats",         "📊 Statistika"),
+        BotCommand("invite",        "🔗 Do'stlarni taklif qilish"),
+        BotCommand("stopquiz",      "⏹ Quizni to'xtatish"),
+        BotCommand("testfact",      "🗓 Fakt yuborish (test)"),
+        BotCommand("admin",         "👨‍💼 Admin bilan bog'lanish"),
+        BotCommand("help",          "❓ Yordam"),
+    ]
+    cmds_ru = [
+        BotCommand("start",         "Запустить бота"),
+        BotCommand("getcountry",    "🌍 Найти страну"),
+        BotCommand("getcapital",    "🏙 Найти столицу"),
+        BotCommand("getflag",       "🚩 Игра флагов"),
+        BotCommand("getcurrency",   "💰 Игра валюта"),
+        BotCommand("quiz1",         "🎯 Викторина (варианты)"),
+        BotCommand("quiz2",         "✍️ Викторина (текст)"),
+        BotCommand("addquestion",   "📝 Добавить вопрос"),
+        BotCommand("myquestions",   "📋 Мои вопросы"),
+        BotCommand("top",           "🏆 Рейтинг"),
+        BotCommand("stats",         "📊 Статистика"),
+        BotCommand("invite",        "🔗 Пригласить друзей"),
+        BotCommand("stopquiz",      "⏹ Остановить квиз"),
+        BotCommand("testfact",      "🗓 Тест факта"),
+        BotCommand("admin",         "👨‍💼 Связаться с Admin"),
+        BotCommand("help",          "❓ Помощь"),
+    ]
+    cmds_en = [
+        BotCommand("start",         "Start the bot"),
+        BotCommand("getcountry",    "🌍 Find Country"),
+        BotCommand("getcapital",    "🏙 Find Capital"),
+        BotCommand("getflag",       "🚩 Flag Game"),
+        BotCommand("getcurrency",   "💰 Currency Game"),
+        BotCommand("quiz1",         "🎯 Quiz (variants)"),
+        BotCommand("quiz2",         "✍️ Quiz (text)"),
+        BotCommand("addquestion",   "📝 Add a question"),
+        BotCommand("myquestions",   "📋 My questions"),
+        BotCommand("top",           "🏆 Leaderboard"),
+        BotCommand("stats",         "📊 Statistics"),
+        BotCommand("invite",        "🔗 Invite friends"),
+        BotCommand("stopquiz",      "⏹ Stop quiz"),
+        BotCommand("testfact",      "🗓 Test daily fact"),
+        BotCommand("admin",         "👨‍💼 Contact Admin"),
+        BotCommand("help",          "❓ Help"),
+    ]
+    try:
+        await bot.set_my_commands(cmds_uz, language_code='uz')
+        await bot.set_my_commands(cmds_ru, language_code='ru')
+        await bot.set_my_commands(cmds_en)          # default (English)
+        await bot.set_my_commands(cmds_en, language_code='en')
+    except Exception as e:
+        logging.getLogger(__name__).warning("set_my_commands failed: %s", e)
 
 
 def main() -> None:
