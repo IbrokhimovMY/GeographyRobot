@@ -62,6 +62,7 @@ async def broadcast_send(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
     sent = 0
     failed = 0
+    logger.info("Broadcast started: total=%d", total)
     for i, uid in enumerate(user_ids):
         try:
             await context.bot.send_message(
@@ -70,14 +71,15 @@ async def broadcast_send(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
                 parse_mode='HTML',
             )
             sent += 1
-        except Exception:
+        except Exception as e:
             failed += 1
+            logger.debug("Broadcast skip uid=%s: %s", uid, e)
 
-        # Update progress every 20 users
-        if (i + 1) % 20 == 0 or (i + 1) == total:
+        # Update progress every 5 users (or last user)
+        if (i + 1) % 5 == 0 or (i + 1) == total:
             try:
                 await status.edit_text(
-                    f"⏳ Jo'natilmoqda... ({i+1}/{total})"
+                    f"⏳ Jo'natilmoqda... ({i+1}/{total}) ✅{sent} ❌{failed}"
                 )
             except Exception:
                 pass
