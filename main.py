@@ -113,8 +113,7 @@ def main() -> None:
     async def _media_broadcast(update, context):
         await broadcast_handle(update, context)
     app.add_handler(MessageHandler(
-        (filters.PHOTO | filters.VIDEO | filters.DOCUMENT | filters.AUDIO)
-        & ~filters.COMMAND,
+        (filters.PHOTO | filters.VIDEO) & ~filters.COMMAND,
         _media_broadcast,
     ))
 
