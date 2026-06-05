@@ -67,14 +67,9 @@ async def _do_broadcast(context: ContextTypes.DEFAULT_TYPE,
     sent = failed = 0
     for i, uid in enumerate(user_ids):
         try:
-            if len(msg_ids) == 1:
+            for mid in msg_ids:
                 await context.bot.forward_message(
-                    chat_id=int(uid), from_chat_id=from_chat, message_id=msg_ids[0]
-                )
-            else:
-                # Forward album (multiple messages)
-                await context.bot.forward_messages(
-                    chat_id=int(uid), from_chat_id=from_chat, message_ids=msg_ids
+                    chat_id=int(uid), from_chat_id=from_chat, message_id=mid
                 )
             sent += 1
         except Exception as e:
