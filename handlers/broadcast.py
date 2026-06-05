@@ -115,28 +115,41 @@ async def _album_job(context: ContextTypes.DEFAULT_TYPE) -> None:
 async def broadcast_handle(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
     """Returns True if message consumed as broadcast."""
     uid = str(update.effective_user.id)
+    msg = update.message if update.message else None
+    if not msg:
+        return False
+
+    group_id = msg.media_group_id
+
+    # If this photo belongs to an album already being collected — add it
+    if group_id and group_id in _ALBUMS:
+        _ALBUMS[group_id]['msg_ids'].append(msg.message_id)
+        # Reset 1s job
+        job_name = f"bc_album_{group_id}"
+        for j in context.application.job_queue.get_jobs_by_name(job_name):
+            j.schedule_removal()
+        context.application.job_queue.run_once(
+            _album_job, 1.0, data={'group_id': group_id}, name=job_name,
+        )
+        return True
+
     if not context.user_data.get(_KEY):
         return False
     if not _is_admin(uid):
         context.user_data.pop(_KEY, None)
         return False
 
-    msg = update.message
     from_chat = update.effective_chat.id
-    group_id = msg.media_group_id if msg else None
 
     if group_id:
-        # Album: collect all photos, fire job after 1s
-        if group_id not in _ALBUMS:
-            _ALBUMS[group_id] = {
-                'from_chat': from_chat,
-                'msg_ids': [],
-                'uid': uid,
-                'reply_msg': msg,
-            }
-            # Clear flag now so subsequent album photos don't re-trigger
-            context.user_data.pop(_KEY, None)
-        _ALBUMS[group_id]['msg_ids'].append(msg.message_id)
+        # First photo of a new album
+        context.user_data.pop(_KEY, None)
+        _ALBUMS[group_id] = {
+            'from_chat': from_chat,
+            'msg_ids': [msg.message_id],
+            'uid': uid,
+            'reply_msg': msg,
+        }
 
         # Reset 1s countdown (cancel old job, schedule new)
         job_name = f"bc_album_{group_id}"
