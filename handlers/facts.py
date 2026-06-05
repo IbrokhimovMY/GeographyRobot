@@ -74,16 +74,24 @@ def _build_local_uz_fact(lang: str = 'uz') -> str | None:
     today = datetime.date.today()
     m, d = today.month, today.day
 
-    # Find exact match first, then same month, then any
-    exact   = [(y, uz, ru, en) for mo, dy, y, uz, ru, en in UZ_DATE_FACTS if mo == m and dy == d]
-    month   = [(y, uz, ru, en) for mo, dy, y, uz, ru, en in UZ_DATE_FACTS if mo == m]
-    fallback= [(y, uz, ru, en) for mo, dy, y, uz, ru, en in UZ_DATE_FACTS]
+    # Use date as seed: same day = same fact (consistent), different day = different fact
+    import random as _rnd
+    day_seed = today.year * 10000 + today.month * 100 + today.day
+    rng = _rnd.Random(day_seed)
 
-    pool = exact or month or fallback
-    if not pool:
+    # Prefer exact date match; fall back to same month, then all facts
+    exact    = [(y, uz, ru, en) for mo, dy, y, uz, ru, en in UZ_DATE_FACTS if mo == m and dy == d]
+    fallback = [(y, uz, ru, en) for mo, dy, y, uz, ru, en in UZ_DATE_FACTS]
+
+    if exact:
+        year, uz_text, ru_text, en_text = rng.choice(exact)
+    else:
+        # Pick from full list using day index to guarantee different fact each day
+        idx = day_seed % len(fallback)
+        year, uz_text, ru_text, en_text = fallback[idx]
+
+    if not uz_text:
         return None
-
-    year, uz_text, ru_text, en_text = random.choice(pool)
 
     text = uz_text if lang == 'uz' else (ru_text if lang == 'ru' else en_text)
 
