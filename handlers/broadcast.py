@@ -59,13 +59,15 @@ async def broadcast_send(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         await update.message.reply_text(f"❌ DB xatosi: {e}")
         return ConversationHandler.END
 
+    logger.info("Broadcast: admin=%s total=%d msg='%s...'",
+                update.effective_user.id, total, msg_text[:30])
+
     status = await update.message.reply_text(
-        f"⏳ Jo'natilmoqda... (0/{total})"
+        f"📢 Broadcast boshlandi\n👥 Foydalanuvchilar: {total}\n⏳ Jo'natilmoqda..."
     )
 
     sent = 0
     failed = 0
-    logger.info("Broadcast started: total=%d", total)
     for i, uid in enumerate(user_ids):
         try:
             await context.bot.send_message(
