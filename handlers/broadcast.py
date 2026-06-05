@@ -72,8 +72,18 @@ async def broadcast_send(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             )
             sent += 1
         except Exception as e:
-            failed += 1
-            logger.debug("Broadcast skip uid=%s: %s", uid, e)
+            err = str(e)
+            # Try without parse_mode if HTML parsing failed
+            if 'parse' in err.lower() or 'entity' in err.lower():
+                try:
+                    await context.bot.send_message(chat_id=int(uid), text=msg_text)
+                    sent += 1
+                    failed -= 0  # don't count as failed
+                except Exception:
+                    failed += 1
+            else:
+                failed += 1
+            logger.info("Broadcast uid=%s error: %s", uid, err)
 
         # Update progress every 5 users (or last user)
         if (i + 1) % 5 == 0 or (i + 1) == total:
