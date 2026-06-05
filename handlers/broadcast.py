@@ -1,41 +1,58 @@
 """
-Admin broadcast — no conversation state needed.
-Usage: /broadcast Your message text here
-       /broadcast <b>HTML</b> supported too
+Admin broadcast — supports text, photos, videos, any message type.
+Step 1: /broadcast  → bot asks for the message
+Step 2: Admin sends any message (text/photo/etc) → forwarded to all users
 """
 import asyncio
 import logging
 
 from telegram import Update
-from telegram.ext import ContextTypes, CommandHandler
+from telegram.ext import ContextTypes, CommandHandler, MessageHandler, filters
 
 from config import ADMIN_IDS
 
 logger = logging.getLogger(__name__)
 
-
-def _is_admin(update: Update) -> bool:
-    return str(update.effective_user.id) in ADMIN_IDS
+_KEY = 'awaiting_broadcast'
 
 
-async def broadcast_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    if not _is_admin(update):
+def _is_admin(uid: str) -> bool:
+    return uid in ADMIN_IDS
+
+
+async def broadcast_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    uid = str(update.effective_user.id)
+    if not _is_admin(uid):
         await update.message.reply_text("❌ Ruxsat yo'q.")
         return
 
-    # Message text comes after /broadcast command
-    msg_text = ' '.join(context.args) if context.args else ''
-    if not msg_text:
-        await update.message.reply_text(
-            "📢 <b>Broadcast</b>\n\n"
-            "Ishlatish: <code>/broadcast Xabar matni</code>\n\n"
-            "Misol:\n<code>/broadcast Yangi funksiya qo'shildi!</code>",
-            parse_mode='HTML',
-        )
-        return
+    context.user_data[_KEY] = True
+    await update.message.reply_text(
+        "📢 <b>Broadcast</b>\n\n"
+        "Xabar, rasm, video yoki istalgan kontent yuboring.\n"
+        "Bekor qilish uchun /cancel",
+        parse_mode='HTML',
+    )
 
-    logger.info("Broadcast started by admin=%s: '%s...'",
-                update.effective_user.id, msg_text[:40])
+
+async def broadcast_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    context.user_data.pop(_KEY, None)
+    await update.message.reply_text("❌ Broadcast bekor qilindi.")
+
+
+async def broadcast_handle(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
+    """
+    Called from handle_guess and media handlers.
+    Returns True if this message was a broadcast, False otherwise.
+    """
+    uid = str(update.effective_user.id)
+    if not context.user_data.get(_KEY):
+        return False
+    if not _is_admin(uid):
+        context.user_data.pop(_KEY, None)
+        return False
+
+    context.user_data.pop(_KEY, None)
 
     # Get all user IDs
     try:
@@ -47,37 +64,34 @@ async def broadcast_command(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     except Exception as e:
         logger.error("Broadcast DB error: %s", e)
         await update.message.reply_text(f"❌ DB xatosi: {e}")
-        return
+        return True
+
+    logger.info("Broadcast: admin=%s total=%d", uid, total)
 
     status = await update.message.reply_text(
-        f"📢 Broadcast boshlandi\n"
-        f"👥 Foydalanuvchilar: {total}\n"
-        f"⏳ Jo'natilmoqda..."
+        f"📢 Broadcast boshlandi · 👥 {total} foydalanuvchi\n⏳ Jo'natilmoqda..."
     )
 
+    from_chat = update.effective_chat.id
+    msg_id = update.message.message_id
+
     sent = failed = 0
-    for i, uid in enumerate(user_ids):
+    for i, to_uid in enumerate(user_ids):
         try:
-            await context.bot.send_message(
-                chat_id=int(uid), text=msg_text, parse_mode='HTML'
+            await context.bot.forward_message(
+                chat_id=int(to_uid),
+                from_chat_id=from_chat,
+                message_id=msg_id,
             )
             sent += 1
         except Exception as e:
-            err = str(e)
-            if 'parse' in err.lower() or 'entity' in err.lower():
-                try:
-                    await context.bot.send_message(chat_id=int(uid), text=msg_text)
-                    sent += 1
-                except Exception:
-                    failed += 1
-            else:
-                failed += 1
-            logger.info("Broadcast skip uid=%s: %s", uid, err[:60])
+            failed += 1
+            logger.debug("Broadcast skip %s: %s", to_uid, str(e)[:50])
 
         if (i + 1) % 10 == 0 or (i + 1) == total:
             try:
                 await status.edit_text(
-                    f"⏳ Jo'natilmoqda... ({i+1}/{total}) ✅{sent} ❌{failed}"
+                    f"⏳ {i+1}/{total} · ✅{sent} ❌{failed}"
                 )
             except Exception:
                 pass
@@ -88,17 +102,12 @@ async def broadcast_command(update: Update, context: ContextTypes.DEFAULT_TYPE) 
         await status.edit_text(
             f"✅ <b>Broadcast tugadi</b>\n\n"
             f"📨 Jo'natildi: <b>{sent}</b>\n"
-            f"❌ Xato: <b>{failed}</b>\n"
+            f"❌ Xato (bloklagan): <b>{failed}</b>\n"
             f"👥 Jami: <b>{total}</b>",
             parse_mode='HTML',
         )
     except Exception:
-        await update.message.reply_text(
-            f"✅ Broadcast tugadi: {sent}/{total} jo'natildi"
-        )
+        pass
 
     logger.info("Broadcast done: sent=%d failed=%d total=%d", sent, failed, total)
-
-
-def build_broadcast_handler():
-    return CommandHandler('broadcast', broadcast_command)
+    return True

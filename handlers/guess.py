@@ -29,6 +29,7 @@ from handlers.currency import get_currency_game
 from handlers.quiz import check_text_quiz_answer, start_variant_quiz, start_text_quiz
 from handlers.poll_quiz import check_custom_text_answer
 from handlers.invite import invite_command
+from handlers.broadcast import broadcast_handle
 
 logger = logging.getLogger(__name__)
 
@@ -166,6 +167,10 @@ async def handle_guess(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
     text = update.message.text.strip()
     if len(text) > 100:
+        return
+
+    # Broadcast check — must be first so media messages are also handled
+    if await broadcast_handle(update, context):
         return
 
     # Button routes checked FIRST — any button press cancels info mode
