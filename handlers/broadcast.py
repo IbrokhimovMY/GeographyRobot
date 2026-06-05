@@ -1,97 +1,80 @@
-"""Admin broadcast: send a message to all registered users."""
+"""
+Admin broadcast — no conversation state needed.
+Usage: /broadcast Your message text here
+       /broadcast <b>HTML</b> supported too
+"""
 import asyncio
-import html
 import logging
 
 from telegram import Update
-from telegram.ext import (
-    ContextTypes, ConversationHandler, CommandHandler,
-    MessageHandler, filters,
-)
+from telegram.ext import ContextTypes, CommandHandler
 
 from config import ADMIN_IDS
-from database import get_user_lang
-from keyboards import default_kb
 
 logger = logging.getLogger(__name__)
 
-WAITING_MESSAGE = 1
-
 
 def _is_admin(update: Update) -> bool:
-    uid = str(update.effective_user.id)
-    return uid in ADMIN_IDS
+    return str(update.effective_user.id) in ADMIN_IDS
 
 
-async def broadcast_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+async def broadcast_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not _is_admin(update):
         await update.message.reply_text("❌ Ruxsat yo'q.")
-        return ConversationHandler.END
+        return
 
-    await update.message.reply_text(
-        "📢 <b>Broadcast</b>\n\n"
-        "Xabar matnini yozing (HTML format qo'llab-quvvatlanadi).\n"
-        "Bekor qilish uchun /cancel",
-        parse_mode='HTML',
-    )
-    return WAITING_MESSAGE
-
-
-async def broadcast_send(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    if not _is_admin(update):
-        return ConversationHandler.END
-
-    msg_text = update.message.text or update.message.caption or ''
+    # Message text comes after /broadcast command
+    msg_text = ' '.join(context.args) if context.args else ''
     if not msg_text:
-        await update.message.reply_text("❌ Matn bo'sh.")
-        return WAITING_MESSAGE
+        await update.message.reply_text(
+            "📢 <b>Broadcast</b>\n\n"
+            "Ishlatish: <code>/broadcast Xabar matni</code>\n\n"
+            "Misol:\n<code>/broadcast Yangi funksiya qo'shildi!</code>",
+            parse_mode='HTML',
+        )
+        return
 
-    # Get all user IDs from DB (avoid LIKE to prevent psycopg2 % issues)
+    logger.info("Broadcast started by admin=%s: '%s...'",
+                update.effective_user.id, msg_text[:40])
+
+    # Get all user IDs
     try:
         from database import _get_conn, _exec
         with _get_conn() as conn:
             rows = _exec(conn, 'SELECT user_id FROM users').fetchall()
-        # Filter out group IDs (negative) in Python
         user_ids = [r[0] for r in rows if not str(r[0]).startswith('-')]
         total = len(user_ids)
     except Exception as e:
         logger.error("Broadcast DB error: %s", e)
         await update.message.reply_text(f"❌ DB xatosi: {e}")
-        return ConversationHandler.END
-
-    logger.info("Broadcast: admin=%s total=%d msg='%s...'",
-                update.effective_user.id, total, msg_text[:30])
+        return
 
     status = await update.message.reply_text(
-        f"📢 Broadcast boshlandi\n👥 Foydalanuvchilar: {total}\n⏳ Jo'natilmoqda..."
+        f"📢 Broadcast boshlandi\n"
+        f"👥 Foydalanuvchilar: {total}\n"
+        f"⏳ Jo'natilmoqda..."
     )
 
-    sent = 0
-    failed = 0
+    sent = failed = 0
     for i, uid in enumerate(user_ids):
         try:
             await context.bot.send_message(
-                chat_id=int(uid),
-                text=msg_text,
-                parse_mode='HTML',
+                chat_id=int(uid), text=msg_text, parse_mode='HTML'
             )
             sent += 1
         except Exception as e:
             err = str(e)
-            # Try without parse_mode if HTML parsing failed
             if 'parse' in err.lower() or 'entity' in err.lower():
                 try:
                     await context.bot.send_message(chat_id=int(uid), text=msg_text)
                     sent += 1
-                    failed -= 0  # don't count as failed
                 except Exception:
                     failed += 1
             else:
                 failed += 1
-            logger.info("Broadcast uid=%s error: %s", uid, err)
+            logger.info("Broadcast skip uid=%s: %s", uid, err[:60])
 
-        # Update progress every 5 users (or last user)
-        if (i + 1) % 5 == 0 or (i + 1) == total:
+        if (i + 1) % 10 == 0 or (i + 1) == total:
             try:
                 await status.edit_text(
                     f"⏳ Jo'natilmoqda... ({i+1}/{total}) ✅{sent} ❌{failed}"
@@ -99,32 +82,23 @@ async def broadcast_send(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             except Exception:
                 pass
 
-        await asyncio.sleep(0.05)  # ~20 msg/sec — Telegram limit
+        await asyncio.sleep(0.05)
 
-    await status.edit_text(
-        f"✅ <b>Broadcast tugadi</b>\n\n"
-        f"📨 Jo'natildi: <b>{sent}</b>\n"
-        f"❌ Xato: <b>{failed}</b>\n"
-        f"👥 Jami: <b>{total}</b>",
-        parse_mode='HTML',
-    )
-    logger.info("Broadcast: sent=%d failed=%d total=%d", sent, failed, total)
-    return ConversationHandler.END
+    try:
+        await status.edit_text(
+            f"✅ <b>Broadcast tugadi</b>\n\n"
+            f"📨 Jo'natildi: <b>{sent}</b>\n"
+            f"❌ Xato: <b>{failed}</b>\n"
+            f"👥 Jami: <b>{total}</b>",
+            parse_mode='HTML',
+        )
+    except Exception:
+        await update.message.reply_text(
+            f"✅ Broadcast tugadi: {sent}/{total} jo'natildi"
+        )
+
+    logger.info("Broadcast done: sent=%d failed=%d total=%d", sent, failed, total)
 
 
-async def broadcast_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    await update.message.reply_text("❌ Bekor qilindi.")
-    return ConversationHandler.END
-
-
-def build_broadcast_handler() -> ConversationHandler:
-    return ConversationHandler(
-        entry_points=[CommandHandler('broadcast', broadcast_start)],
-        states={
-            WAITING_MESSAGE: [
-                MessageHandler(filters.TEXT & ~filters.COMMAND, broadcast_send),
-            ],
-        },
-        fallbacks=[CommandHandler('cancel', broadcast_cancel)],
-        per_user=True, per_chat=False, name='broadcast',
-    )
+def build_broadcast_handler():
+    return CommandHandler('broadcast', broadcast_command)
