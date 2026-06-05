@@ -46,15 +46,18 @@ async def broadcast_send(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         await update.message.reply_text("❌ Matn bo'sh.")
         return WAITING_MESSAGE
 
-    # Get all user IDs from DB
-    from database import _get_conn, _exec
-    with _get_conn() as conn:
-        rows = _exec(conn,
-            "SELECT user_id FROM users WHERE user_id NOT LIKE '-%'"
-        ).fetchall()
-
-    user_ids = [r[0] for r in rows]
-    total = len(user_ids)
+    # Get all user IDs from DB (avoid LIKE to prevent psycopg2 % issues)
+    try:
+        from database import _get_conn, _exec
+        with _get_conn() as conn:
+            rows = _exec(conn, 'SELECT user_id FROM users').fetchall()
+        # Filter out group IDs (negative) in Python
+        user_ids = [r[0] for r in rows if not str(r[0]).startswith('-')]
+        total = len(user_ids)
+    except Exception as e:
+        logger.error("Broadcast DB error: %s", e)
+        await update.message.reply_text(f"❌ DB xatosi: {e}")
+        return ConversationHandler.END
 
     status = await update.message.reply_text(
         f"⏳ Jo'natilmoqda... (0/{total})"
