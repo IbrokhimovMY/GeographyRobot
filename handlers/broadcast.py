@@ -1,11 +1,11 @@
 """
-Admin broadcast — supports text, photos, videos, albums (media groups).
-/broadcast → admin sends any message → forwarded to all users.
+Admin broadcast — bot nomidan yuboradi (forward emas).
+/broadcast → admin xabar/rasm/albom yuboradi → bot foydalanuvchilarga copy qiladi.
 """
 import asyncio
 import logging
 
-from telegram import Update
+from telegram import Update, InputMediaPhoto, InputMediaVideo
 from telegram.ext import ContextTypes, CommandHandler, MessageHandler, filters
 
 from config import ADMIN_IDS
@@ -13,7 +13,7 @@ from config import ADMIN_IDS
 logger = logging.getLogger(__name__)
 
 _KEY = 'awaiting_broadcast'
-# buffer for collecting album photos: group_id -> {from_chat, msg_ids, uid}
+# album buffer: group_id -> {'msgs': [Message, ...], 'uid': str}
 _ALBUMS: dict = {}
 
 
@@ -29,7 +29,7 @@ async def broadcast_start(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     context.user_data[_KEY] = True
     await update.message.reply_text(
         "📢 <b>Broadcast</b>\n\n"
-        "Xabar, rasm, video, albom — istalgan kontent yuboring.\n"
+        "Xabar, rasm, video yoki albom yuboring.\n"
         "Bekor qilish: /cancel",
         parse_mode='HTML',
     )
@@ -40,10 +40,46 @@ async def broadcast_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     await update.message.reply_text("❌ Broadcast bekor qilindi.")
 
 
+async def _send_to_user(context: ContextTypes.DEFAULT_TYPE,
+                        uid: int, messages: list) -> bool:
+    """Send one or more messages to a single user as bot's own messages."""
+    try:
+        if len(messages) == 1:
+            msg = messages[0]
+            await context.bot.copy_message(
+                chat_id=uid,
+                from_chat_id=msg.chat_id,
+                message_id=msg.message_id,
+            )
+        else:
+            # Album — build InputMedia list
+            media = []
+            for msg in messages:
+                caption = msg.caption or None
+                if msg.photo:
+                    file_id = msg.photo[-1].file_id
+                    media.append(InputMediaPhoto(media=file_id, caption=caption))
+                elif msg.video:
+                    file_id = msg.video.file_id
+                    media.append(InputMediaVideo(media=file_id, caption=caption))
+            if media:
+                await context.bot.send_media_group(chat_id=uid, media=media)
+            else:
+                # fallback: copy each
+                for msg in messages:
+                    await context.bot.copy_message(
+                        chat_id=uid,
+                        from_chat_id=msg.chat_id,
+                        message_id=msg.message_id,
+                    )
+        return True
+    except Exception:
+        return False
+
+
 async def _do_broadcast(context: ContextTypes.DEFAULT_TYPE,
-                        from_chat: int, msg_ids: list[int],
-                        admin_uid: str, reply_to_msg) -> None:
-    """Forward one or more messages to all users."""
+                        messages: list, admin_uid: str,
+                        reply_msg) -> None:
     try:
         from database import _get_conn, _exec
         with _get_conn() as conn:
@@ -52,29 +88,21 @@ async def _do_broadcast(context: ContextTypes.DEFAULT_TYPE,
         total = len(user_ids)
     except Exception as e:
         logger.error("Broadcast DB error: %s", e)
-        try:
-            await reply_to_msg.reply_text(f"❌ DB xatosi: {e}")
-        except Exception:
-            pass
+        await reply_msg.reply_text(f"❌ DB xatosi: {e}")
         return
 
-    logger.info("Broadcast: admin=%s msgs=%d users=%d", admin_uid, len(msg_ids), total)
-
-    status = await reply_to_msg.reply_text(
-        f"📢 Broadcast boshlandi · 👥 {total}\n⏳ Jo'natilmoqda..."
+    logger.info("Broadcast: admin=%s msgs=%d users=%d", admin_uid, len(messages), total)
+    status = await reply_msg.reply_text(
+        f"📢 {total} foydalanuvchiga jo'natilmoqda..."
     )
 
     sent = failed = 0
     for i, uid in enumerate(user_ids):
-        try:
-            for mid in msg_ids:
-                await context.bot.forward_message(
-                    chat_id=int(uid), from_chat_id=from_chat, message_id=mid
-                )
+        ok = await _send_to_user(context, int(uid), messages)
+        if ok:
             sent += 1
-        except Exception as e:
+        else:
             failed += 1
-            logger.debug("Broadcast skip %s: %s", uid, str(e)[:60])
 
         if (i + 1) % 10 == 0 or (i + 1) == total:
             try:
@@ -97,34 +125,25 @@ async def _do_broadcast(context: ContextTypes.DEFAULT_TYPE,
 
 
 async def _album_job(context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Job fires 1s after first photo — by then all album photos have arrived."""
     data = context.job.data
     group_id = data['group_id']
     info = _ALBUMS.pop(group_id, None)
     if not info:
         return
-    await _do_broadcast(
-        context,
-        from_chat=info['from_chat'],
-        msg_ids=info['msg_ids'],
-        admin_uid=info['uid'],
-        reply_to_msg=info['reply_msg'],
-    )
+    await _do_broadcast(context, info['msgs'], info['uid'], info['reply_msg'])
 
 
 async def broadcast_handle(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
-    """Returns True if message consumed as broadcast."""
     uid = str(update.effective_user.id)
-    msg = update.message if update.message else None
+    msg = update.message
     if not msg:
         return False
 
     group_id = msg.media_group_id
 
-    # If this photo belongs to an album already being collected — add it
+    # Album continuation — add to existing buffer regardless of _KEY
     if group_id and group_id in _ALBUMS:
-        _ALBUMS[group_id]['msg_ids'].append(msg.message_id)
-        # Reset 1s job
+        _ALBUMS[group_id]['msgs'].append(msg)
         job_name = f"bc_album_{group_id}"
         for j in context.application.job_queue.get_jobs_by_name(job_name):
             j.schedule_removal()
@@ -139,30 +158,16 @@ async def broadcast_handle(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         context.user_data.pop(_KEY, None)
         return False
 
-    from_chat = update.effective_chat.id
+    context.user_data.pop(_KEY, None)
 
     if group_id:
         # First photo of a new album
-        context.user_data.pop(_KEY, None)
-        _ALBUMS[group_id] = {
-            'from_chat': from_chat,
-            'msg_ids': [msg.message_id],
-            'uid': uid,
-            'reply_msg': msg,
-        }
-
-        # Reset 1s countdown (cancel old job, schedule new)
+        _ALBUMS[group_id] = {'msgs': [msg], 'uid': uid, 'reply_msg': msg}
         job_name = f"bc_album_{group_id}"
-        for j in context.application.job_queue.get_jobs_by_name(job_name):
-            j.schedule_removal()
         context.application.job_queue.run_once(
-            _album_job, 1.0,
-            data={'group_id': group_id},
-            name=job_name,
+            _album_job, 1.0, data={'group_id': group_id}, name=job_name,
         )
-        return True
     else:
-        # Single message: broadcast immediately
-        context.user_data.pop(_KEY, None)
-        await _do_broadcast(context, from_chat, [msg.message_id], uid, msg)
-        return True
+        # Single message
+        await _do_broadcast(context, [msg], uid, msg)
+    return True
