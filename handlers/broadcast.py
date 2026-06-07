@@ -24,9 +24,11 @@ def _is_admin(uid: str) -> bool:
 async def broadcast_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     uid = str(update.effective_user.id)
     if not _is_admin(uid):
+        logger.info("broadcast_start: uid=%s not admin. ADMIN_IDS=%s", uid, ADMIN_IDS)
         await update.message.reply_text("❌ Ruxsat yo'q.")
         return
     context.user_data[_KEY] = True
+    logger.info("broadcast_start: uid=%s ready for broadcast", uid)
     await update.message.reply_text(
         "📢 <b>Broadcast</b>\n\n"
         "Xabar, rasm, video yoki albom yuboring.\n"
@@ -153,8 +155,10 @@ async def broadcast_handle(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         return True
 
     if not context.user_data.get(_KEY):
+        logger.info("broadcast_handle: _KEY not set for uid=%s", uid)
         return False
     if not _is_admin(uid):
+        logger.info("broadcast_handle: uid=%s not in ADMIN_IDS=%s", uid, ADMIN_IDS)
         context.user_data.pop(_KEY, None)
         return False
 
