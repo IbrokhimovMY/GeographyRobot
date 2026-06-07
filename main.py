@@ -115,6 +115,12 @@ def main() -> None:
     app.add_handler(CommandHandler('cancel',    broadcast_cancel))
 
     async def _media_broadcast(update, context):
+        import logging as _log
+        _log.getLogger(__name__).info(
+            "media_broadcast: uid=%s key=%s",
+            update.effective_user.id if update.effective_user else '?',
+            context.user_data.get('awaiting_broadcast'),
+        )
         await broadcast_handle(update, context)
     app.add_handler(MessageHandler(
         (filters.PHOTO | filters.VIDEO) & ~filters.COMMAND & ~filters.StatusUpdate.ALL,
