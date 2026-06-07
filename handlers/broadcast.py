@@ -12,7 +12,8 @@ from config import ADMIN_IDS
 
 logger = logging.getLogger(__name__)
 
-_KEY = 'awaiting_broadcast'
+# Module-level set — survives PTB user_data resets within same process
+_PENDING: set[str] = set()
 
 
 def _is_admin(uid: str) -> bool:
@@ -22,9 +23,11 @@ def _is_admin(uid: str) -> bool:
 async def broadcast_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     uid = str(update.effective_user.id)
     if not _is_admin(uid):
+        logger.info("broadcast_start: uid=%s not in ADMIN_IDS=%s", uid, ADMIN_IDS)
         await update.message.reply_text("❌ Ruxsat yo'q.")
         return
-    context.user_data[_KEY] = True
+    _PENDING.add(uid)
+    logger.info("broadcast_start: uid=%s added to PENDING", uid)
     await update.message.reply_text(
         "📢 <b>Broadcast</b>\n\n"
         "Xabar, rasm, video yoki istalgan kontent yuboring.\n"
@@ -34,20 +37,21 @@ async def broadcast_start(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
 
 async def broadcast_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    context.user_data.pop(_KEY, None)
+    _PENDING.discard(str(update.effective_user.id))
     await update.message.reply_text("❌ Broadcast bekor qilindi.")
 
 
 async def broadcast_handle(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
     """Called from handle_guess and media handler. Returns True if consumed."""
     uid = str(update.effective_user.id)
-    if not context.user_data.get(_KEY):
+    logger.info("broadcast_handle: uid=%s pending=%s", uid, uid in _PENDING)
+    if uid not in _PENDING:
         return False
     if not _is_admin(uid):
-        context.user_data.pop(_KEY, None)
+        _PENDING.discard(uid)
         return False
 
-    context.user_data.pop(_KEY, None)
+    _PENDING.discard(uid)
 
     try:
         from database import _get_conn, _exec
