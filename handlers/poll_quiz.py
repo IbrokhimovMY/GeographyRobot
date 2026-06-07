@@ -442,6 +442,7 @@ async def start_user_poll_quiz(chat_id: str, lang: str, secs: int,
         return
 
     questions = get_random_user_questions(lang, limit=POLL_QUIZ_SIZE)
+
     if not questions:
         total = count_user_questions()
         no_q = {

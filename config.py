@@ -9,6 +9,7 @@ DB_PATH: str = os.getenv('DB_PATH', 'geography_bot.db')
 SUPPORTED_LANGS: tuple = ('uz', 'ru', 'en')
 API_PORT: int = int(os.getenv('API_PORT', '8080'))
 ADMIN_IDS: set = set(os.getenv('ADMIN_IDS', '').split(',')) - {''}
+REQUIRED_CHANNEL: str = os.getenv('REQUIRED_CHANNEL', '')
 
 if not BOT_TOKEN:
     raise ValueError("BOT_TOKEN not set in environment.")

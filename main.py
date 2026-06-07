@@ -2,7 +2,7 @@ import logging
 from datetime import time, timezone, timedelta
 
 import telegram
-from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, PollAnswerHandler, filters
+from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, PollAnswerHandler, TypeHandler, filters
 
 from config import BOT_TOKEN, API_PORT
 from database import init_db
@@ -33,6 +33,7 @@ from handlers.settings import (
     region_command, region_callback,
     difficulty_command, difficulty_callback,
 )
+from handlers.subscription import subscription_middleware
 
 logging.basicConfig(
     format='%(asctime)s - %(levelname)s - %(message)s',
@@ -103,6 +104,9 @@ def main() -> None:
            .concurrent_updates(True)   # handle multiple users simultaneously
            .post_init(_post_init)
            .build())
+
+    # Subscription check runs before all other handlers (group=-1)
+    app.add_handler(TypeHandler(telegram.Update, subscription_middleware), group=-1)
 
     # Onboarding must be first
     app.add_handler(build_onboarding_handler())
