@@ -28,7 +28,7 @@ from handlers.invite import invite_command
 from handlers.user_quiz import (
     build_addquestion_handler, myquestions_command, myquestions_delete,
 )
-from handlers.broadcast import broadcast_start, broadcast_cancel, broadcast_handle
+from handlers.broadcast import build_broadcast_handler
 from handlers.settings import (
     region_command, region_callback,
     difficulty_command, difficulty_callback,
@@ -111,21 +111,7 @@ def main() -> None:
     # Onboarding must be first
     app.add_handler(build_onboarding_handler())
     app.add_handler(build_addquestion_handler())
-    app.add_handler(CommandHandler('broadcast', broadcast_start))
-    app.add_handler(CommandHandler('cancel',    broadcast_cancel))
-
-    async def _media_broadcast(update, context):
-        import logging as _log
-        _log.getLogger(__name__).info(
-            "media_broadcast: uid=%s key=%s",
-            update.effective_user.id if update.effective_user else '?',
-            context.user_data.get('awaiting_broadcast'),
-        )
-        await broadcast_handle(update, context)
-    app.add_handler(MessageHandler(
-        (filters.PHOTO | filters.VIDEO) & ~filters.COMMAND & ~filters.StatusUpdate.ALL,
-        _media_broadcast,
-    ))
+    app.add_handler(build_broadcast_handler())
 
     # Game commands
     app.add_handler(CommandHandler('language',   language_command))
