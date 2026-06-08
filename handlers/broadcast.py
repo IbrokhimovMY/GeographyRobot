@@ -46,8 +46,7 @@ async def broadcast_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -
 
 async def broadcast_receive(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     uid = str(update.effective_user.id)
-    logger.info("broadcast_receive: uid=%s msg_type=%s",
-                uid, update.message.content_type if update.message else '?')
+    logger.info("broadcast_receive: uid=%s", uid)
 
     try:
         from database import _get_conn, _exec
