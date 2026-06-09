@@ -28,7 +28,7 @@ from handlers.invite import invite_command
 from handlers.user_quiz import (
     build_addquestion_handler, myquestions_command, myquestions_delete,
 )
-from handlers.broadcast import build_broadcast_handler
+from handlers.broadcast import broadcast_start, broadcast_cancel
 from handlers.settings import (
     region_command, region_callback,
     difficulty_command, difficulty_callback,
@@ -111,7 +111,8 @@ def main() -> None:
     # Onboarding must be first
     app.add_handler(build_onboarding_handler())
     app.add_handler(build_addquestion_handler())
-    app.add_handler(build_broadcast_handler())
+    app.add_handler(CommandHandler('broadcast', broadcast_start))
+    app.add_handler(CommandHandler('cancel',    broadcast_cancel))
 
     # Game commands
     app.add_handler(CommandHandler('language',   language_command))

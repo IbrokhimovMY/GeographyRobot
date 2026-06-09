@@ -26,6 +26,16 @@ logger = logging.getLogger(__name__)
 
 QUIZ_SIZE = 20
 
+_APOS = "\x27"  # ASCII apostrophe U+0027
+
+def _fix_apos(s: str) -> str:
+    """Normalize all apostrophe/quote variants to ASCII apostrophe U+0027."""
+    for cp in (0x2018, 0x2019,
+               0x02BB, 0x02BC, 0x02B9, 0x02BE, 0x02BF,
+               0x0060, 0x00B4, 0x2032, 0x2035):
+        s = s.replace(chr(cp), _APOS)
+    return s
+
 # Variant quiz difficulty timers
 _DIFF_SECS_V1 = {'easy': 20, 'med': 15, 'hard': 10}
 

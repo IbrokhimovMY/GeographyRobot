@@ -1,52 +1,55 @@
 """
-Admin broadcast via ConversationHandler.
-/broadcast → bot waits → admin sends ANY message → forwarded to all users.
+Admin broadcast — simple pending-set approach.
+/broadcast → bot waits → admin sends text → forwarded to all users.
 """
 import asyncio
 import logging
 
 from telegram import Update
-from telegram.ext import (
-    ContextTypes, ConversationHandler,
-    CommandHandler, MessageHandler, filters,
-)
+from telegram.ext import ContextTypes
 
 from config import ADMIN_IDS
 
 logger = logging.getLogger(__name__)
 
-WAITING = 1
+# Admin user IDs currently waiting to send a broadcast message
+_PENDING: set = set()
 
 
 def _is_admin(uid: str) -> bool:
     return uid in ADMIN_IDS
 
 
-async def broadcast_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+async def broadcast_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     uid = str(update.effective_user.id)
     if not _is_admin(uid):
-        logger.info("broadcast_start: uid=%s not in ADMIN_IDS=%s", uid, ADMIN_IDS)
+        logger.info("broadcast_start: uid=%s not admin", uid)
         await update.message.reply_text("❌ Ruxsat yo'q.")
-        return ConversationHandler.END
-
-    logger.info("broadcast_start: uid=%s entering WAITING state", uid)
+        return
+    _PENDING.add(uid)
+    logger.info("broadcast_start: uid=%s added to _PENDING", uid)
     await update.message.reply_text(
-        "📢 <b>Broadcast</b>\n\n"
-        "Xabar, rasm, video yoki istalgan kontent yuboring.\n"
-        "Bekor qilish: /cancel",
+        "📢 <b>Broadcast</b>\n\nXabar yuboring.\nBekor qilish: /cancel",
         parse_mode='HTML',
     )
-    return WAITING
 
 
-async def broadcast_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    await update.message.reply_text("❌ Broadcast bekor qilindi.")
-    return ConversationHandler.END
-
-
-async def broadcast_receive(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+async def broadcast_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     uid = str(update.effective_user.id)
-    logger.info("broadcast_receive: uid=%s", uid)
+    _PENDING.discard(uid)
+    await update.message.reply_text("❌ Broadcast bekor qilindi.")
+
+
+async def broadcast_handle(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
+    """Called from handle_guess. Returns True if the message was consumed by broadcast."""
+    if not update.message:
+        return False
+    uid = str(update.effective_user.id)
+    if uid not in _PENDING:
+        return False
+
+    _PENDING.discard(uid)
+    logger.info("broadcast_handle: uid=%s starting broadcast", uid)
 
     try:
         from database import _get_conn, _exec
@@ -57,7 +60,7 @@ async def broadcast_receive(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     except Exception as e:
         logger.error("Broadcast DB error: %s", e)
         await update.message.reply_text(f"❌ DB xatosi: {e}")
-        return ConversationHandler.END
+        return True
 
     logger.info("Broadcast: admin=%s total=%d", uid, total)
     status = await update.message.reply_text(
@@ -100,24 +103,4 @@ async def broadcast_receive(update: Update, context: ContextTypes.DEFAULT_TYPE) 
         pass
 
     logger.info("Broadcast done: sent=%d failed=%d total=%d", sent, failed, total)
-    return ConversationHandler.END
-
-
-def build_broadcast_handler() -> ConversationHandler:
-    any_msg = filters.ALL & ~filters.COMMAND & ~filters.StatusUpdate.ALL
-    return ConversationHandler(
-        entry_points=[CommandHandler('broadcast', broadcast_start)],
-        states={
-            WAITING: [MessageHandler(any_msg, broadcast_receive)],
-        },
-        fallbacks=[CommandHandler('cancel', broadcast_cancel)],
-        per_user=True,
-        per_chat=False,
-        name='broadcast',
-        allow_reentry=True,
-    )
-
-
-# Keep for backwards compatibility (called from guess.py)
-async def broadcast_handle(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
-    return False
+    return True
