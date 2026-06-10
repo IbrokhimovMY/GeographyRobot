@@ -361,7 +361,7 @@ const I18N = {
     streak_msg:' in a row! 🔥', best_msg:'New record: ',
     lbl_total:'Games', lbl_wrong:'Wrong',
     btn_top_mini:'🏆 Top', top_title:'Top Players', top_empty:'No players yet.',
-    top_loading:'Loading…', top_you:'(you)',
+    top_loading:'Loading…', top_you:'(you)', top_your_rank:'📍 Your rank',
   },
   uz: {
     home_sub:'Dunyo geografiyasini sinab ko\'ring',
@@ -393,7 +393,7 @@ const I18N = {
     streak_msg:' ta ketma-ket! 🔥', best_msg:'Yangi rekord: ',
     lbl_total:"Jami o'yin", lbl_wrong:"Noto'g'ri",
     btn_top_mini:"🏆 Top", top_title:"Top o'yinchilar", top_empty:"Hali hech kim o'ynamagan.",
-    top_loading:'Yuklanmoqda…', top_you:'(siz)',
+    top_loading:'Yuklanmoqda…', top_you:'(siz)', top_your_rank:"📍 Sizning o'rningiz",
   },
   ru: {
     home_sub:'Проверьте знания географии',
@@ -425,7 +425,7 @@ const I18N = {
     streak_msg:' подряд! 🔥', best_msg:'Новый рекорд: ',
     lbl_total:'Игр', lbl_wrong:'Неверно',
     btn_top_mini:'🏆 Топ', top_title:'Топ игроков', top_empty:'Пока нет игроков.',
-    top_loading:'Загрузка…', top_you:'(вы)',
+    top_loading:'Загрузка…', top_you:'(вы)', top_your_rank:'📍 Ваше место',
   },
 };
 
@@ -956,15 +956,18 @@ function openTop() {
   const myId = String(tg?.initDataUnsafe?.user?.id || '');
   const myName = tg?.initDataUnsafe?.user?.username || tg?.initDataUnsafe?.user?.first_name || '';
 
-  fetch('/api/leaderboard')
+  fetch('/api/leaderboard' + (myId ? `?user_id=${encodeURIComponent(myId)}` : ''))
     .then(r => r.json())
     .then(data => {
-      if (!data.length) {
+      const top = data.top || [];
+      const me = data.me;
+      if (!top.length) {
         list.innerHTML = `<div style="text-align:center;color:var(--hint);padding:40px">${T('top_empty')}</div>`;
         return;
       }
       const medals = ['🥇','🥈','🥉'];
-      list.innerHTML = data.map((p, i) => {
+      const gamesLbl = l==='uz'?'o\'yin':l==='ru'?'игр':'games';
+      let html = top.map((p, i) => {
         const medal = i < 3 ? medals[i] : `<span style="font-size:15px;font-weight:700">${i+1}.</span>`;
         const isMe = myName && p.name && p.name.toLowerCase() === myName.toLowerCase();
         const youLabel = isMe ? ` <span style="color:var(--hint);font-size:11px">${T('top_you')}</span>` : '';
@@ -972,11 +975,25 @@ function openTop() {
           <span class="top-rank">${medal}</span>
           <div style="flex:1;overflow:hidden">
             <div class="top-name">${p.name || '?'}${youLabel}</div>
-            <div style="font-size:11px;color:var(--hint)">${p.correct}/${p.total} ${l==='uz'?'o\'yin':l==='ru'?'игр':'games'}</div>
+            <div style="font-size:11px;color:var(--hint)">${p.correct}/${p.total} ${gamesLbl}</div>
           </div>
           <span class="top-pct">${p.pct}%</span>
         </div>`;
       }).join('');
+
+      if (me) {
+        html += `<div style="text-align:center;color:var(--hint);font-size:11px;margin:10px 0 4px">───────────</div>`;
+        html += `<div class="top-item" style="border:1px solid #4caf50">
+          <span class="top-rank"><span style="font-size:15px;font-weight:700">${me.rank}.</span></span>
+          <div style="flex:1;overflow:hidden">
+            <div class="top-name">${T('top_your_rank')}</div>
+            <div style="font-size:11px;color:var(--hint)">${me.correct}/${me.total} ${gamesLbl}</div>
+          </div>
+          <span class="top-pct">${me.pct}%</span>
+        </div>`;
+      }
+
+      list.innerHTML = html;
     })
     .catch(() => {
       list.innerHTML = `<div style="text-align:center;color:var(--hint);padding:40px">⚠️ Error loading</div>`;
@@ -1091,10 +1108,10 @@ async function renderMap(target) {
   svg.selectAll('path')
     .data(countries.features)
     .enter().append('path')
-    .attr('class', d => 'country-path' + (d.id === targetNum ? ' target' : ''))
+    .attr('class', d => 'country-path' + (parseInt(d.id, 10) === targetNum ? ' target' : ''))
     .attr('d', path)
-    .attr('data-num', d => d.id)
-    .on('click', function(event, d) { onMapClick(d.id, this); });
+    .attr('data-num', d => parseInt(d.id, 10))
+    .on('click', function(event, d) { onMapClick(parseInt(d.id, 10), this); });
 }
 
 function _highlightCorrectOnMap(iso2, className) {

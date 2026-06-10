@@ -19,12 +19,24 @@ from data import (
 )
 from database import get_user_lang
 from keyboards import default_kb
-from translations import get_country_name
+from translations import get_country_name, t
 from geo_facts import MOUNTAIN_FACTS, RIVER_FACTS, LAKE_FACTS, GEO_RECORDS
+from state import new_hint_data
 
 logger = logging.getLogger(__name__)
 
 QUIZ_SIZE = 20
+
+_APOS = "\x27"  # ASCII apostrophe U+0027
+
+
+def _fix_apos(s: str) -> str:
+    """Normalize all apostrophe/quote variants to ASCII apostrophe U+0027."""
+    for cp in (0x2018, 0x2019,
+               0x02BB, 0x02BC, 0x02B9, 0x02BE, 0x02BF,
+               0x0060, 0x00B4, 0x2032, 0x2035):
+        s = s.replace(chr(cp), _APOS)
+    return s
 
 # Variant quiz difficulty timers
 _DIFF_SECS_V1 = {'easy': 20, 'med': 15, 'hard': 10}
@@ -693,9 +705,10 @@ async def _send_text_q(context: ContextTypes.DEFAULT_TYPE, chat_id: str) -> None
     cuz  = quiz['questions'][idx]
 
     text, correct_uz = _build_text_question(cuz, idx + 1, lang)
-    quiz.update(correct_uz=correct_uz, answered=False)
+    quiz.update(correct_uz=correct_uz, answered=False, hint_data=new_hint_data())
 
-    await context.bot.send_message(chat_id=int(chat_id), text=text, parse_mode='HTML')
+    kb = IKM([[IKB(t(lang, 'btn_hint'), callback_data=f"tqh:{chat_id}")]])
+    await context.bot.send_message(chat_id=int(chat_id), text=text, parse_mode='HTML', reply_markup=kb)
     quiz['question_time'] = time.time()   # record when question was sent
 
     if quiz.get('job'):
@@ -707,6 +720,22 @@ async def _send_text_q(context: ContextTypes.DEFAULT_TYPE, chat_id: str) -> None
         data={'chat_id': chat_id},
         name=f"tquiz_{chat_id}_{idx}",  # unique per question
     )
+
+
+async def handle_text_quiz_hint(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Inline hint button for /quiz2 — shows a personal hint popup."""
+    from handlers.game import _next_hint
+
+    query = update.callback_query
+    chat_id = query.data.split(':', 1)[1]
+    quiz = active_text_quizzes.get(chat_id)
+    if not quiz or quiz['answered']:
+        await query.answer()
+        return
+
+    lang = quiz['lang']
+    hint_msg = await _next_hint(quiz['correct_uz'], lang, quiz.setdefault('hint_data', new_hint_data()), 'country')
+    await query.answer(hint_msg, show_alert=True)
 
 
 async def check_text_quiz_answer(

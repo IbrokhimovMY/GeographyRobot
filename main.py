@@ -21,7 +21,7 @@ from handlers.challenge import get_challenge
 from handlers.currency import get_currency_game
 from handlers.quiz import (
     start_variant_quiz, start_text_quiz, stop_quiz,
-    handle_variant_callback, handle_quiz_diff_callback,
+    handle_variant_callback, handle_quiz_diff_callback, handle_text_quiz_hint,
 )
 from handlers.poll_quiz import handle_poll_answer
 from handlers.invite import invite_command
@@ -151,6 +151,7 @@ def main() -> None:
     app.add_handler(CallbackQueryHandler(difficulty_callback,  pattern=r'^diff_'))
     app.add_handler(CallbackQueryHandler(handle_variant_callback,   pattern=r'^vq:'))
     app.add_handler(CallbackQueryHandler(handle_quiz_diff_callback, pattern=r'^q[12]:'))
+    app.add_handler(CallbackQueryHandler(handle_text_quiz_hint,     pattern=r'^tqh:'))
     app.add_handler(PollAnswerHandler(handle_poll_answer))
 
     # Free-text guesses and map WebApp
