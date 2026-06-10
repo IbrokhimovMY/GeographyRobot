@@ -141,7 +141,10 @@ async def handle_static(request: web.Request) -> web.Response:
         ".css": "text/css", ".json": "application/json",
     }
     ct = content_types.get(file_path.suffix, "application/octet-stream")
-    return web.Response(body=file_path.read_bytes(), content_type=ct)
+    # Telegram's WebView aggressively caches mini-app assets — disable caching
+    # so code changes (like this one) take effect without a stale cache.
+    headers = {"Cache-Control": "no-store, no-cache, must-revalidate, max-age=0"}
+    return web.Response(body=file_path.read_bytes(), content_type=ct, headers=headers)
 
 
 def build_app() -> web.Application:

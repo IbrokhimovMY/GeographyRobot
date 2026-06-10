@@ -148,7 +148,7 @@ async def _send_wiki_fact_bg(context: ContextTypes.DEFAULT_TYPE, chat_id: int,
         country_display = html.escape(get_country_name(country_uz, lang))
         await context.bot.send_message(
             chat_id=chat_id,
-            text=f"📖 <b>{country_display}</b>\n\n{html.escape(fact)}",
+            text=f"📖 <b>{country_display}</b>\n\n{html.escape(fact)}\n\n@MYGeoGroup",
             parse_mode='HTML',
         )
 

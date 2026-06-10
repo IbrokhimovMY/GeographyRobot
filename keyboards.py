@@ -29,6 +29,17 @@ def guess_kb(lang: str) -> ReplyKeyboardMarkup:
     )
 
 
+def quiz_hint_kb(lang: str) -> ReplyKeyboardMarkup:
+    """Keyboard shown during /quiz2 — single Hint button."""
+    return ReplyKeyboardMarkup(
+        [
+            [t(lang, 'btn_hint')],
+        ],
+        resize_keyboard=True,
+        one_time_keyboard=False,
+    )
+
+
 def map_kb(lang: str, in_group: bool = False) -> ReplyKeyboardMarkup:
     # WebApp buttons not allowed in groups
     if in_group or not WEBAPP_URL or WEBAPP_URL == 'https://your-domain.com/map.html':

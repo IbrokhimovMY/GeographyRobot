@@ -26,7 +26,7 @@ _UZ_TO_EN.update(COUNTRY_NAMES_EN)
 # Disambiguate country names that conflict with other Wikipedia articles
 _WIKI_OVERRIDES: dict[str, str] = {
     'Turkiya': 'Türkiye',          # "Turkey" redirects ambiguously; use official name
-    'Turkmeniston': 'Turkmenistan',
+    'Turkmaniston': 'Turkmenistan',
     'Janubiy Sudan': 'South Sudan',
 }
 
@@ -290,7 +290,7 @@ async def _send_daily_fact_to(bot, chat_id: str, lang: str) -> bool:
         'en': "🌍 <b>Geographic Fact of the Day</b>",
     }.get(lang, "🌍 <b>Geographic Fact of the Day</b>")
 
-    text = f"{title}\n\n{fact}"
+    text = f"{title}\n\n{fact}\n\n@MYGeoGroup"
     try:
         await bot.send_message(chat_id=int(chat_id), text=text, parse_mode='HTML')
         return True

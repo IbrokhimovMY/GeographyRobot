@@ -18,8 +18,8 @@ from data import (
     COUNTRY_CURRENCIES, COUNTRY_CONTINENTS,
 )
 from database import get_user_lang
-from keyboards import default_kb
-from translations import get_country_name, t
+from keyboards import default_kb, quiz_hint_kb
+from translations import get_country_name
 from geo_facts import MOUNTAIN_FACTS, RIVER_FACTS, LAKE_FACTS, GEO_RECORDS
 from state import new_hint_data
 
@@ -690,7 +690,8 @@ async def _launch_geo_text(chat_id: str, lang: str, secs: int,
     }
     await context.bot.send_message(chat_id=int(chat_id),
                                    text=_quiz_i18n(lang, 'text_start'),
-                                   parse_mode='HTML')
+                                   parse_mode='HTML',
+                                   reply_markup=quiz_hint_kb(lang))
     await _send_text_q(context, chat_id)
 
 
@@ -706,8 +707,7 @@ async def _send_text_q(context: ContextTypes.DEFAULT_TYPE, chat_id: str) -> None
     text, correct_uz = _build_text_question(cuz, idx + 1, lang)
     quiz.update(correct_uz=correct_uz, answered=False, hint_data=new_hint_data())
 
-    kb = IKM([[IKB(t(lang, 'btn_hint'), callback_data=f"tqh:{chat_id}")]])
-    await context.bot.send_message(chat_id=int(chat_id), text=text, parse_mode='HTML', reply_markup=kb)
+    await context.bot.send_message(chat_id=int(chat_id), text=text, parse_mode='HTML')
     quiz['question_time'] = time.time()   # record when question was sent
 
     if quiz.get('job'):
@@ -719,22 +719,6 @@ async def _send_text_q(context: ContextTypes.DEFAULT_TYPE, chat_id: str) -> None
         data={'chat_id': chat_id},
         name=f"tquiz_{chat_id}_{idx}",  # unique per question
     )
-
-
-async def handle_text_quiz_hint(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Inline hint button for /quiz2 — shows a personal hint popup."""
-    from handlers.game import _next_hint
-
-    query = update.callback_query
-    chat_id = query.data.split(':', 1)[1]
-    quiz = active_text_quizzes.get(chat_id)
-    if not quiz or quiz['answered']:
-        await query.answer()
-        return
-
-    lang = quiz['lang']
-    hint_msg = await _next_hint(quiz['correct_uz'], lang, quiz.setdefault('hint_data', new_hint_data()), 'country')
-    await query.answer(hint_msg, show_alert=True)
 
 
 async def check_text_quiz_answer(
@@ -855,11 +839,13 @@ async def _finish(context: ContextTypes.DEFAULT_TYPE, chat_id: str, qtype: str) 
     lang   = quiz.get('lang', 'uz')
     scores = quiz.get('scores', {})
     board  = _scoreboard(scores) if scores else _quiz_i18n(lang, 'no_scores')
+    in_group = chat_id.startswith('-')
 
     await context.bot.send_message(
         chat_id=int(chat_id),
         text=_quiz_i18n(lang, 'results', board=board),
         parse_mode='HTML',
+        reply_markup=default_kb(lang, in_group),
     )
 
 
@@ -879,7 +865,8 @@ async def stop_quiz(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if stop_poll_quiz(chat_id):   # handles both poll and custom_text
         stopped = True
     msg = _quiz_i18n(lang, 'stopped') if stopped else _quiz_i18n(lang, 'none')
-    await update.message.reply_text(msg)
+    in_group = chat_id.startswith('-')
+    await update.message.reply_text(msg, reply_markup=default_kb(lang, in_group) if stopped else None)
 
 
 async def handle_quiz_diff_callback(update: Update,

@@ -317,6 +317,19 @@ async def hint(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                                     game_type)
         await update.message.reply_text(hint_msg, parse_mode='Markdown',
                                         reply_markup=guess_kb(lang))
-    else:
-        await update.message.reply_text(t(lang, 'hint_no_game'),
-                                        reply_markup=default_kb(lang, _is_group(update)))
+        return
+
+    # /quiz2 (text quiz) — give a personal progressive hint, keep quiz keyboard
+    from handlers.quiz import active_text_quizzes
+    quiz = active_text_quizzes.get(chat_id)
+    if quiz and not quiz['answered']:
+        from keyboards import quiz_hint_kb
+        hint_msg = await _next_hint(quiz['correct_uz'], lang,
+                                    quiz.setdefault('hint_data', new_hint_data()),
+                                    'country')
+        await update.message.reply_text(hint_msg, parse_mode='Markdown',
+                                        reply_markup=quiz_hint_kb(lang))
+        return
+
+    await update.message.reply_text(t(lang, 'hint_no_game'),
+                                    reply_markup=default_kb(lang, _is_group(update)))
