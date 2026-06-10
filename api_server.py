@@ -12,7 +12,7 @@ from pathlib import Path
 from aiohttp import web
 
 from config import BOT_TOKEN
-from database import get_stats, record_result, get_top_users, get_user_lang, increment_streak, reset_streak
+from database import get_stats, record_result, get_top_users, get_user_lang, increment_streak, reset_streak, get_user_rank
 
 logger = logging.getLogger(__name__)
 WEBAPP_DIR = Path(__file__).parent / "webapp"
@@ -113,11 +113,19 @@ async def handle_game(request: web.Request) -> web.Response:
     return web.json_response({"active": True, "country_uz": game["country"]})
 
 
-async def handle_leaderboard(_: web.Request) -> web.Response:
+async def handle_leaderboard(request: web.Request) -> web.Response:
     rows = get_top_users(10)
     result = [{"name": r[0], "correct": r[1], "total": r[2],
                "pct": round(r[1] / r[2] * 100) if r[2] else 0} for r in rows]
-    return web.json_response(result)
+
+    me = None
+    user_id = request.rel_url.query.get("user_id", "")
+    if user_id:
+        rank = get_user_rank(user_id)
+        if rank and rank["rank"] > 10:
+            me = rank
+
+    return web.json_response({"top": result, "me": me})
 
 
 async def handle_static(request: web.Request) -> web.Response:

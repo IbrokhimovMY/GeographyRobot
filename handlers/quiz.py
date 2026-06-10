@@ -19,8 +19,9 @@ from data import (
 )
 from database import get_user_lang
 from keyboards import default_kb
-from translations import get_country_name
+from translations import get_country_name, t
 from geo_facts import MOUNTAIN_FACTS, RIVER_FACTS, LAKE_FACTS, GEO_RECORDS
+from state import new_hint_data
 
 logger = logging.getLogger(__name__)
 
@@ -703,9 +704,10 @@ async def _send_text_q(context: ContextTypes.DEFAULT_TYPE, chat_id: str) -> None
     cuz  = quiz['questions'][idx]
 
     text, correct_uz = _build_text_question(cuz, idx + 1, lang)
-    quiz.update(correct_uz=correct_uz, answered=False)
+    quiz.update(correct_uz=correct_uz, answered=False, hint_data=new_hint_data())
 
-    await context.bot.send_message(chat_id=int(chat_id), text=text, parse_mode='HTML')
+    kb = IKM([[IKB(t(lang, 'btn_hint'), callback_data=f"tqh:{chat_id}")]])
+    await context.bot.send_message(chat_id=int(chat_id), text=text, parse_mode='HTML', reply_markup=kb)
     quiz['question_time'] = time.time()   # record when question was sent
 
     if quiz.get('job'):
@@ -717,6 +719,22 @@ async def _send_text_q(context: ContextTypes.DEFAULT_TYPE, chat_id: str) -> None
         data={'chat_id': chat_id},
         name=f"tquiz_{chat_id}_{idx}",  # unique per question
     )
+
+
+async def handle_text_quiz_hint(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Inline hint button for /quiz2 — shows a personal hint popup."""
+    from handlers.game import _next_hint
+
+    query = update.callback_query
+    chat_id = query.data.split(':', 1)[1]
+    quiz = active_text_quizzes.get(chat_id)
+    if not quiz or quiz['answered']:
+        await query.answer()
+        return
+
+    lang = quiz['lang']
+    hint_msg = await _next_hint(quiz['correct_uz'], lang, quiz.setdefault('hint_data', new_hint_data()), 'country')
+    await query.answer(hint_msg, show_alert=True)
 
 
 async def check_text_quiz_answer(
