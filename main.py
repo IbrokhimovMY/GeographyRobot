@@ -4,7 +4,7 @@ from datetime import time, timezone, timedelta
 import telegram
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, PollAnswerHandler, TypeHandler, filters
 
-from config import BOT_TOKEN, API_PORT
+from config import BOT_TOKEN, API_PORT, WEBAPP_URL
 from database import init_db
 from api_server import start_api_server
 from handlers.onboarding import build_onboarding_handler
@@ -93,6 +93,17 @@ async def _set_commands(bot) -> None:
         await bot.delete_my_commands(scope=BotCommandScopeDefault())
     except Exception as e:
         logging.getLogger(__name__).debug("delete_my_commands: %s", e)
+
+    # Reply-keyboard web_app buttons don't open on Telegram Desktop — set the
+    # chat menu button to launch the Mini App so it works on every client.
+    if WEBAPP_URL:
+        try:
+            from telegram import MenuButtonWebApp, WebAppInfo
+            await bot.set_chat_menu_button(
+                menu_button=MenuButtonWebApp(text="🌍 Mini App", web_app=WebAppInfo(url=WEBAPP_URL))
+            )
+        except Exception as e:
+            logging.getLogger(__name__).debug("set_chat_menu_button: %s", e)
 
 
 def main() -> None:
