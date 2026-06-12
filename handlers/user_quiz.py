@@ -236,8 +236,13 @@ async def myquestions_delete(update: Update, context: ContextTypes.DEFAULT_TYPE)
 # ─── ConversationHandler builder ─────────────────────────────────────────────
 
 def build_addquestion_handler() -> ConversationHandler:
+    from translations import STRINGS
+    btn_labels = [STRINGS[lang]['btn_addquestion'] for lang in ('uz', 'ru', 'en')]
     return ConversationHandler(
-        entry_points=[CommandHandler('addquestion', addquestion_start)],
+        entry_points=[
+            CommandHandler('addquestion', addquestion_start),
+            MessageHandler(filters.Text(btn_labels), addquestion_start),
+        ],
         states={
             Q_TEXT:    [MessageHandler(filters.TEXT & ~filters.COMMAND, aq_text)],
             Q_A:       [MessageHandler(filters.TEXT & ~filters.COMMAND, aq_a)],

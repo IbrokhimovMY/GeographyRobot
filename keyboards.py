@@ -11,11 +11,8 @@ def default_kb(lang: str, in_group: bool = False) -> ReplyKeyboardMarkup:
         [t(lang, 'btn_quiz1'), t(lang, 'btn_quiz2')],
         [t(lang, 'btn_region'), t(lang, 'btn_daily_facts'), t(lang, 'btn_info')],
         [t(lang, 'btn_invite'), t(lang, 'btn_reset'), t(lang, 'btn_help')],
-        [t(lang, 'btn_admin')],
+        [t(lang, 'btn_addquestion'), t(lang, 'btn_admin')],
     ]
-    # Mini App button (WebApp) — only in private chats
-    if WEBAPP_URL and not in_group:
-        rows.append([telegram.KeyboardButton(t(lang, 'btn_miniapp'), web_app=WebAppInfo(url=WEBAPP_URL))])
     return ReplyKeyboardMarkup(rows, resize_keyboard=True, one_time_keyboard=False)
 
 
